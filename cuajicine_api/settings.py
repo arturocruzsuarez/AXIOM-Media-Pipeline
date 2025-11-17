@@ -83,7 +83,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'cuajicine_db',
         'USER': 'cuajicine_user',
-        'PASSWORD': 'Dj4ng0_Pr0yectEJ36!',  # <-- ¡Pon tu contraseña real aquí!
+        'PASSWORD': 'Dj4ng0_Pr0yectEJ36!',  
         'HOST': 'localhost',
         'PORT': '5432',  # <-- El puerto por defecto de PostgreSQL
     }

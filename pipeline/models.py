@@ -2,7 +2,7 @@
 from django.db import models
 from django.conf import settings
 
-# ... (Aquí va tu clase Profile que ya escribiste) ...
+
 class Profile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -16,13 +16,13 @@ class Profile(models.Model):
 
 # Esta es la Tabla 3: Project (El "Contenido" o "Idea")
 class Project(models.Model):
-    # La "grapa" Muchos-a-Uno con el Pasaporte (User)
+    
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, # Apunta al User
-        on_delete=models.CASCADE    # Si borras el User, borra este Project
+        on_delete=models.CASCADE    # Si se borra el User, se borra este Project
     )
 
-    # El resto de los campos de tu documento
+    # El resto de los campos del documento
     title = models.CharField(max_length=255)
     synopsis = models.TextField(blank=True) # blank=True significa que puede estar vacío
     cover_image_path = models.CharField(max_length=1024, blank=True)
@@ -36,7 +36,7 @@ class Project(models.Model):
 class Version(models.Model):
     
     # --- Aquí definimos el "menú" para el estado de aprobación ---
-    # Esto traduce tu requerimiento [cite: 1761]
+    
     class ApprovalStatus(models.TextChoices):
         # El formato es: VARIABLE = 'Valor en BBDD', 'Valor legible'
         PENDING = 'PENDING_REVIEW', 'Pendiente de Revisión'
@@ -44,7 +44,7 @@ class Version(models.Model):
         REJECTED = 'REJECTED', 'Rechazado'
 
     # --- Y definimos el "menú" para el estado de transcodificación ---
-    # Esto traduce tu requerimiento 
+    
     class TranscodingStatus(models.TextChoices):
         PENDING = 'PENDING', 'Pendiente'
         PROCESSING = 'PROCESSING', 'Procesando'
@@ -53,16 +53,16 @@ class Version(models.Model):
 
     # --- Ahora los campos del modelo ---
     
-    # La "grapa" que conecta esta Versión a su Proyecto [cite: 1758]
+    # Lo que conecta esta Versión a su Proyecto 
     project = models.ForeignKey(
         Project, # Conecta con la clase Project de arriba
         on_delete=models.CASCADE,
         related_name='versions' # Esto nos permite hacer project.versions
     )
     
-    version_number = models.PositiveIntegerField(default=1) # [cite: 1759]
+    version_number = models.PositiveIntegerField(default=1) 
     
-    # Campo de Aprobación. ¡Aquí usamos tu idea!
+    # Campo de Aprobación. 
     approval_status = models.CharField(
         max_length=20,
         choices=ApprovalStatus.choices,  # <-- Usa el menú desplegable
@@ -76,14 +76,14 @@ class Version(models.Model):
         default=TranscodingStatus.PENDING
     )
 
-    # Las rutas a los archivos en S3/MinIO [cite: 1763, 1764]
+    
     original_file_path = models.CharField(max_length=1024, blank=True)
     proxy_file_path = models.CharField(max_length=1024, blank=True)
     
-    # Quién subió esta versión específica [cite: 1760]
+    # Quién subió esta versión específica 
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, # Si se borra el user, no borres la versión
+        on_delete=models.SET_NULL, 
         null=True                  # Permite que el user sea nulo
     )
 
@@ -92,7 +92,7 @@ class Version(models.Model):
     
 # Esta es la Tabla 5: Comment (El Feedback del Admin)
 class Comment(models.Model):
-    # La "grapa" que conecta este comentario a su Versión
+    # Lo que conecta este comentario a su Versión
     version = models.ForeignKey(
         Version, # Conecta con la clase Version
         on_delete=models.CASCADE,
@@ -102,7 +102,7 @@ class Comment(models.Model):
     # Quién escribió el comentario (un Admin)
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, # Si borras al admin, no borres su comentario
+        on_delete=models.SET_NULL, # Si se borra al admin, no borres su comentario
         null=True
     )
     
@@ -117,14 +117,14 @@ class Comment(models.Model):
 
 # Esta es la Tabla 6: License (Contenido Comercial)
 class License(models.Model):
-    # La "grapa" que conecta esta licencia a un Proyecto
+    # Lo que  conecta esta licencia a un Proyecto
     project = models.OneToOneField( # Un proyecto comercial tiene una sola licencia
         Project,
         on_delete=models.CASCADE,
         related_name='license'
     )
     
-    provider = models.CharField(max_length=255) # Ej. "Warner Bros" [cite: 313]
+    provider = models.CharField(max_length=255) # Ej. "Warner Bros" 
     start_date = models.DateField()             # Fecha de inicio
     end_date = models.DateField()               # Fecha de vigencia
 
