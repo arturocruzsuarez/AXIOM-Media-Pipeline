@@ -40,9 +40,11 @@ INSTALLED_APPS = [
 
     # Mis herramientas (Terceros)
     'rest_framework',
+    'rest_framework.authtoken',  # <-- NUEVO: El sistema de tokens
 
     # Mis apps (Locales)
     'pipeline.apps.PipelineConfig',
+    
 ]
 
 MIDDLEWARE = [
@@ -130,3 +132,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# settings.py (Al final del archivo)
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}

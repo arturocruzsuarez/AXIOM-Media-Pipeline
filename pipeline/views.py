@@ -1,11 +1,22 @@
-# pipeline/views.py
 from rest_framework import viewsets
-from .models import Project
-from .serializers import ProjectSerializer
+# Importamos modelos y serializers
+from .models import Project, Version, Comment, License
+from .serializers import ProjectSerializer, VersionSerializer, CommentSerializer, LicenseSerializer
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    # 1. ¿Qué datos va a manejar este gerente?
     queryset = Project.objects.all()
-    
-    # 2. ¿Qué traductor va a usar?
     serializer_class = ProjectSerializer
+
+# --- NUEVOS VIEWSETS ---
+
+class VersionViewSet(viewsets.ModelViewSet):
+    queryset = Version.objects.all()
+    serializer_class = VersionSerializer
+
+class CommentViewSet(viewsets.ModelViewSet):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+
+class LicenseViewSet(viewsets.ModelViewSet):
+    queryset = License.objects.all()
+    serializer_class = LicenseSerializer

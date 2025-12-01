@@ -1,16 +1,16 @@
-# pipeline/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProjectViewSet
+# Importamos todas las vistas
+from .views import ProjectViewSet, VersionViewSet, CommentViewSet, LicenseViewSet
 
-# 1. Creamos el Router
 router = DefaultRouter()
 
-# 2. Registramos nuestro "Gerente"
-# Esto le dice: "Cuando alguien entre a /projects, atiende con ProjectViewSet"
+# Registramos las rutas
 router.register(r'projects', ProjectViewSet)
+router.register(r'versions', VersionViewSet)   # <-- Nuevo
+router.register(r'comments', CommentViewSet)   # <-- Nuevo
+router.register(r'licenses', LicenseViewSet)   # <-- Nuevo
 
-# 3. Definimos las URLs de la app
 urlpatterns = [
-    path('', include(router.urls)), # Incluye todas las rutas mágicas del router
+    path('', include(router.urls)),
 ]
