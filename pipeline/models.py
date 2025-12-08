@@ -108,6 +108,8 @@ class Comment(models.Model):
     
     # El texto del feedback
     text = models.TextField()
+    
+    video_timecode = models.CharField(max_length=12, blank=True, help_text="Ej: 00:01:45:12")
 
     created_at = models.DateTimeField(auto_now_add=True) # Para saber cuándo se hizo
 
