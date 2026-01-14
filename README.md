@@ -1,17 +1,22 @@
-# CuajiCine-PAM
-**A Scalable Production Asset Management System**
+# AXIOM Media Pipeline 🎬🚀
 
-CuajiCine is designed to solve the complexity of media asset lifecycles in film production. It acts as a central hub for version control, automated transcoding, and delivery of cinematic assets.
+**Lead Architect:** Arturo Cruz Suárez  
+**Role Target:** Data Engineering / Studio Engineering
 
-## 🏗️ Technical Stack
-- **Framework:** Django (Python)
-- **Task Queue:** Celery with Redis (Asynchronous media processing)
-- **Engine:** FFmpeg (Automated transcoding pipelines)
-- **Database:** PostgreSQL (Metadata management)
+## 📌 Project Overview
+AXIOM is an industrial-grade media infrastructure designed to orchestrate the lifecycle of audiovisual assets. By implementing a **Single Source of Truth (SSOT)** and a decoupled processing engine, AXIOM eliminates "Logistical Debt" and ensures data integrity at scale.
 
-## 🚀 Key Features
-- **Automated Ingest:** Automatic proxy generation for high-res footage.
-- **Distributed Processing:** Scalable worker architecture for heavy video tasks.
-- **API First:** Designed to integrate with DCC tools like Blender or Maya.
+## 🏗️ Key Architectural Features
+- **Asynchronous Ingest:** Powered by Django, Redis, and Celery.
+- **Distributed Transcoding:** Automated QC and proxy generation via FFmpeg.
+- **Scalable Persistence:** Metadata integrity with PostgreSQL (ACID) and binary storage on Amazon S3.
+- **Data Lineage:** Atomic versioning system to prevent "Version Hell".
+
+## 📂 Documentation
+You can find the full technical specification here:  
+👉 [**AXIOM Technical Specs (English Version)**](./docs/AXIOM_Technical_Specs_EN.pdf)
+
+---
+*Developed with the vision of MovieLabs 2030 and high-end studio workflows in mind.*
 
 *Note: Core modules are currently being refactored for professional deployment. Documentation and source code updates in progress.*
