@@ -29,6 +29,10 @@ The system follows a modular architecture inspired by Netflix's microservices pa
 3.  **Worker Nodes:** Consumes tasks to perform CPU-intensive transcoding operations without blocking the main thread.
 4.  **Persistence Layer:** Updates the PostgreSQL database with transactional integrity upon task completion.
 
+## 📚 Full Documentation
+For a deep dive into the system architecture, database schema, and decision logs, please refer to the technical specification:
+📄 [Download AXIOM Technical Overview (PDF)](docs/AXIOM_Architecture_Spec.pdf)
+
 ## 📦 Setup & Installation
 
 ```bash
