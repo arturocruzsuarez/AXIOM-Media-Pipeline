@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 # --- 1. Perfil de Usuario (Roles) ---
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    role = models.CharField(max_length=50, default='Student') # Student, Professor, Admin
+    role = models.CharField(max_length=50, default='Artist') # Artist, Supervisor, TD, Admin
     
     def __str__(self):
         return f"{self.user.username} - {self.role}"
