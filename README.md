@@ -1,9 +1,7 @@
-# AXIOM: Cloud-Native Media Pipeline
-
-**AXIOM** es un sistema de gestión de activos digitales (DAM) de alto rendimiento diseñado para flujos de trabajo de VFX y Animación. Implementa una arquitectura **Producer-Consumer** para la ingesta, transcodificación y versionado atómico de material audiovisual.
+**AXIOM** is a high-performance Digital Asset Management (DAM) system designed for VFX and Animation workflows. It implements a **Producer-Consumer** architecture for the ingest, transcoding, and atomic versioning of audiovisual media.
 
 > **Status:** Active Development (v0.1.0)
-> **Role:** Lead Backend Engineer & Architect
+> **Role:** Lead Backend Engineer & Architect (Target: Aspiring Pipeline TD)
 
 ## 🚀 Key Features
 
