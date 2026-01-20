@@ -1,134 +1,86 @@
-# pipeline/models.py
 from django.db import models
-from django.conf import settings
+from django.contrib.auth.models import User
+from django.utils.translation import gettext_lazy as _
 
-
+# --- 1. Perfil de Usuario (Roles) ---
 class Profile(models.Model):
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE
-    )
-    matricula = models.CharField(max_length=10, unique=True)
-
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=50, default='Student') # Student, Professor, Admin
+    
     def __str__(self):
-        return self.user.username
+        return f"{self.user.username} - {self.role}"
 
+# --- 2. Licencia (Legal) ---
+class License(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    
+    def __str__(self):
+        return self.name
 
-# Esta es la Tabla 3: Project (El "Contenido" o "Idea")
+# --- 3. Proyecto (Contenedor Principal) ---
 class Project(models.Model):
-    
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, # Apunta al User
-        on_delete=models.CASCADE    # Si se borra el User, se borra este Project
-    )
-
-    # El resto de los campos del documento
-    title = models.CharField(max_length=255)
-    synopsis = models.TextField(blank=True) # blank=True significa que puede estar vacío
-    cover_image_path = models.CharField(max_length=1024, blank=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Opcional: Relación con Licencia si se requiere
+    license = models.ForeignKey(License, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        # Para que se vea bonito en el admin
-        return f'{self.title} (por {self.owner.username})'
-    
-    
-# Esta es la Tabla 4: Version (El "Corazón" del Pipeline)
+        return self.title
+
+# --- 4. Versión (Atomic Asset) ---
 class Version(models.Model):
-    
-    # --- Aquí definimos el "menú" para el estado de aprobación ---
-    
     class ApprovalStatus(models.TextChoices):
-        # El formato es: VARIABLE = 'Valor en BBDD', 'Valor legible'
-        PENDING = 'PENDING_REVIEW', 'Pendiente de Revisión'
-        APPROVED = 'APPROVED', 'Aprobado'
-        REJECTED = 'REJECTED', 'Rechazado'
+        PENDING_REVIEW = 'PENDING_REVIEW', _('Pending Review')
+        APPROVED = 'APPROVED', _('Approved')
+        REJECTED = 'REJECTED', _('Rejected')
+        DEPRECATED = 'DEPRECATED', _('Deprecated')  # Rollback logic
 
-    # --- Y definimos el "menú" para el estado de transcodificación ---
-    
     class TranscodingStatus(models.TextChoices):
-        PENDING = 'PENDING', 'Pendiente'
-        PROCESSING = 'PROCESSING', 'Procesando'
-        COMPLETED = 'COMPLETED', 'Completo'
-        FAILED = 'FAILED', 'Falló' # Es buena idea tener un estado de error
+        PENDING = 'PENDING', _('Pending')
+        PROCESSING = 'PROCESSING', _('Processing')
+        COMPLETED = 'COMPLETED', _('Completed')
+        ERROR = 'ERROR', _('Error')
 
-    # --- Ahora los campos del modelo ---
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.IntegerField()
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     
-    # Lo que conecta esta Versión a su Proyecto 
-    project = models.ForeignKey(
-        Project, # Conecta con la clase Project de arriba
-        on_delete=models.CASCADE,
-        related_name='versions' # Esto nos permite hacer project.versions
-    )
-    
-    version_number = models.PositiveIntegerField(default=1) 
-    
-    # Campo de Aprobación. 
+    # --- LINAJE ---
+    parent_version = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    # --------------
+
     approval_status = models.CharField(
-        max_length=20,
-        choices=ApprovalStatus.choices,  # <-- Usa el menú desplegable
-        default=ApprovalStatus.PENDING   # <-- Toda nueva versión empieza como "Pendiente"
+        max_length=20, 
+        choices=ApprovalStatus.choices, 
+        default=ApprovalStatus.PENDING_REVIEW
     )
-
-    # Campo de Transcodificación.
     transcoding_status = models.CharField(
-        max_length=20,
-        choices=TranscodingStatus.choices, # <-- Usa el otro menú
+        max_length=20, 
+        choices=TranscodingStatus.choices, 
         default=TranscodingStatus.PENDING
     )
 
+    original_file_path = models.CharField(max_length=500)
+    proxy_file_path = models.CharField(max_length=500, blank=True, null=True)
     
-    original_file_path = models.CharField(max_length=1024, blank=True)
-    proxy_file_path = models.CharField(max_length=1024, blank=True)
-    
-    # Quién subió esta versión específica 
-    uploaded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, 
-        null=True                  # Permite que el user sea nulo
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('project', 'version_number')
+        ordering = ['-version_number']
 
     def __str__(self):
-        return f'{self.project.title} - v{self.version_number} ({self.get_approval_status_display()})'
-    
-# Esta es la Tabla 5: Comment (El Feedback del Admin)
+        return f"{self.project.title} - v{self.version_number}"
+
+# --- 5. Comentarios (Feedback Loop) ---
 class Comment(models.Model):
-    # Lo que conecta este comentario a su Versión
-    version = models.ForeignKey(
-        Version, # Conecta con la clase Version
-        on_delete=models.CASCADE,
-        related_name='comments' # Nos permite hacer version.comments
-    )
-    
-    # Quién escribió el comentario (un Admin)
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL, # Si se borra al admin, no borres su comentario
-        null=True
-    )
-    
-    # El texto del feedback
-    text = models.TextField()
-    
-    video_timecode = models.CharField(max_length=12, blank=True, help_text="Ej: 00:01:45:12")
-
-    created_at = models.DateTimeField(auto_now_add=True) # Para saber cuándo se hizo
+    version = models.ForeignKey(Version, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'Comentario de {self.author.username} en {self.version}'
-
-
-# Esta es la Tabla 6: License (Contenido Comercial)
-class License(models.Model):
-    # Lo que  conecta esta licencia a un Proyecto
-    project = models.OneToOneField( # Un proyecto comercial tiene una sola licencia
-        Project,
-        on_delete=models.CASCADE,
-        related_name='license'
-    )
-    
-    provider = models.CharField(max_length=255) # Ej. "Warner Bros" 
-    start_date = models.DateField()             # Fecha de inicio
-    end_date = models.DateField()               # Fecha de vigencia
-
-    def __str__(self):
-        return f'Licencia de {self.project.title} (Vence: {self.end_date})'
+        return f"Comment on {self.version} by {self.author}"

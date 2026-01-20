@@ -1,16 +1,7 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-# Importamos todas las vistas
-from .views import ProjectViewSet, VersionViewSet, CommentViewSet, LicenseViewSet
-
-router = DefaultRouter()
-
-# Registramos las rutas
-router.register(r'projects', ProjectViewSet)
-router.register(r'versions', VersionViewSet)   # <-- Nuevo
-router.register(r'comments', CommentViewSet)   # <-- Nuevo
-router.register(r'licenses', LicenseViewSet)   # <-- Nuevo
+from django.urls import path
+from .views import VersionUploadView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Endpoint: POST /api/projects/1/upload/
+    path('projects/<int:project_id>/upload/', VersionUploadView.as_view(), name='version-upload'),
 ]
