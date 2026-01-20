@@ -7,10 +7,10 @@
 
 ## 🚀 Key Features
 
-* **Atomic Versioning:** Implementación de "Single Source of Truth" (SSOT) para garantizar la integridad referencial entre versiones de corte (`v001`, `v002`) y sus metadatos.
-* **Asset Lineage:** Sistema de trazabilidad (`parent_version`) que permite derivar nuevas versiones a partir de cualquier punto en el historial, permitiendo "rollbacks" seguros sin pérdida de datos.
-* **Asynchronous Processing Engine:** Orquestación de tareas pesadas (transcodificación de video) mediante **Celery** y **Redis**, desacoplando la carga del servidor web para una respuesta HTTP inmediata (202 Accepted).
-* **Low-Level Media Manipulation:** Uso de **FFmpeg** a través de `subprocess` para control granular sobre codecs (H.264), contenedores y extracción de metadatos técnicos.
+* **Atomic Versioning:** Implementation of "Single Source of Truth" (SSOT) to guarantee referential integrity between cut versions (`v001`, `v002`) and their metadata.
+* **Asset Lineage:** Traceability system (`parent_version`) that enables deriving new versions from any point in history, allowing safe "rollbacks" without data loss.
+* **Asynchronous Processing Engine:** Orchestration of heavy tasks (video transcoding) using **Celery** and **Redis**, decoupling load from the web server for immediate HTTP response (202 Accepted).
+* **Low-Level Media Manipulation:** Usage of **FFmpeg** via `subprocess` for granular control over codecs (H.264), containers, and technical metadata extraction.
 
 ## 🛠️ Tech Stack
 
