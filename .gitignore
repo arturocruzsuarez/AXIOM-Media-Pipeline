@@ -1,3 +1,25 @@
-venv/
+# --- Python & Django Basics ---
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 db.sqlite3
+.DS_Store
+
+# --- Entornos Virtuales (PESADÍSIMO - Nunca subir) ---
+venv/
+env/
+.env_test/
+.venv/
+
+# --- Variables de Entorno y Secretos (SEGURIDAD) ---
+.env
+.env.local
+
+# --- Media y Archivos de Usuario (No subir videos de prueba) ---
+media/
+static/
+
+# --- IDEs (Archivos de configuración del editor) ---
+.vscode/
+.idea/
