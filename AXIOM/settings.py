@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -57,7 +57,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'cuajicine_api.urls'
+ROOT_URLCONF = 'AXIOM.urls'
 
 TEMPLATES = [
     {
@@ -74,7 +74,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'cuajicine_api.wsgi.application'
+WSGI_APPLICATION = 'AXIOM.wsgi.application'
 
 
 # Database
@@ -83,8 +83,8 @@ WSGI_APPLICATION = 'cuajicine_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'cuajicine_db',
-        'USER': 'cuajicine_user',
+        'NAME': 'axiom',
+        'USER': 'arturocs',
         'PASSWORD': 'Dj4ng0_Pr0yectEJ36!',  
         'HOST': 'localhost',
         'PORT': '5432',  # <-- El puerto por defecto de PostgreSQL
@@ -144,3 +144,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# URL pública para acceder a los archivos
+MEDIA_URL = '/media/'
+
+# Ruta física en tu disco donde se guardarán los assets
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
