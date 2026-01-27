@@ -1,61 +1,70 @@
 # AXIOM: Cloud-Native Media Pipeline
 
-**AXIOM** is a high-performance Digital Asset Management (DAM) system designed for VFX and Animation workflows. It implements a **Producer-Consumer** architecture for the ingest, transcoding, and atomic versioning of audiovisual media.
+**AXIOM** is a high-performance Digital Asset Management (DAM) system specifically architected for VFX and Animation production environments. The system focuses on absolute data integrity, automated Quality Control (QC) orchestration, and atomic version traceability.
 
-> **Status:** Active Development (v0.1.0)
+> **Status:** Active Development (v0.1.0)  
 > **Role:** Lead Backend Engineer & Architect (Target: Aspiring Pipeline TD)
 
-## 🚀 Key Features
+---
 
-* **Atomic Versioning:** Implementation of "Single Source of Truth" (SSOT) to guarantee referential integrity between cut versions (`v001`, `v002`) and their metadata.
-* **Asset Lineage:** Traceability system (`parent_version`) that enables deriving new versions from any point in history, allowing safe "rollbacks" without data loss.
-* **Asynchronous Processing Engine:** Orchestration of heavy tasks (video transcoding) using **Celery** and **Redis**, decoupling load from the web server for immediate HTTP response (202 Accepted).
-* **Low-Level Media Manipulation:** Usage of **FFmpeg** via `subprocess` for granular control over codecs (H.264), containers, and technical metadata extraction.
+## 🚀 Key Features (Implemented & Functional)
+
+* **Cryptographic Integrity ($SHA-256$):** Implementation of binary-level hashing for every ingested asset. This ensures bit-perfect integrity and enables intelligent data de-duplication across the storage layer.
+* **Automated Technical QC:** Real-time metadata extraction using `PyMediaInfo`. The system automatically validates resolution, FPS, and color space against project-specific targets, triggering instant **PASS/FAIL** status.
+* **Dynamic Media Engine (FFmpeg):** Automated creation of 720p H.264 review proxies and frame-accurate thumbnails via FFmpeg subprocesses during the ingest phase.
+* **Atomic Versioning:** Industry-standard versioning logic (`v001`, `v002`) to enforce a **Single Source of Truth (SSOT)** and prevent naming collisions.
+
+---
 
 ## 🛠️ Tech Stack
 
-* **Core:** Python 3.10+, Django 5.0 (Django REST Framework)
-* **Database:** PostgreSQL (Production), SQLite (Dev)
-* **Async Task Queue:** Celery 5.3 + Redis (Broker)
-* **Media Engine:** FFmpeg
-* **Infrastructure:** Docker support (Planned), AWS S3 Integration (In Progress)
+### **Current Core**
+* **Backend:** Python 3.10+, Django 5.0.
+* **Media Processing:** FFmpeg (Transcoding), PyMediaInfo (Technical Metadata).
+* **Database:** PostgreSQL (Production-ready) / SQLite (Development).
 
-## 🏗️ Architecture Overview
+### **Architecture Roadmap (Upcoming Features)**
+* **Distributed Task Queue:** Decoupling heavy transcoding loads from the web server using **Celery** and **Redis**.
+* **Containerization:** Full infrastructure orchestration via **Docker** and **Kubernetes**.
+* **Cloud Storage:** Native **AWS S3** integration for high-availability asset storage.
 
-The system follows a modular architecture inspired by Netflix's microservices patterns for studio technologies:
+---
 
-1.  **Ingest API:** Validates asset integrity and enforces strict naming conventions.
-2.  **Task Dispatcher:** Serializes the request and pushes jobs to the Redis queue.
-3.  **Worker Nodes:** Consumes tasks to perform CPU-intensive transcoding operations without blocking the main thread.
-4.  **Persistence Layer:** Updates the PostgreSQL database with transactional integrity upon task completion.
+## 🏗️ Pipeline Architecture
 
-## 📚 Full Documentation
-For a deep dive into the system architecture, database schema, and decision logs, please refer to the technical specification:
-📄 [Download AXIOM Technical Overview (PDF)](docs/AXIOM_Architecture_Spec.pdf)
+AXIOM follows an event-driven state flow to ensure no asset reaches a supervisor without passing technical validation:
+
+
+
+1.  **Ingest Layer:** Enforces naming conventions and calculates the file's unique digital fingerprint.
+2.  **Validation Layer:** Compares real-time binary metadata against project requirements.
+3.  **Processing Layer:** Orchestrates FFmpeg instances to generate lightweight review media.
+4.  **Persistence Layer:** Updates the PostgreSQL registry with proxy paths and final QC states.
+
+---
 
 ## 📦 Setup & Installation
 
+### **Prerequisites**
+* **FFmpeg:** Must be installed and available in the system PATH (Standard in WSL/Linux).
+* **MediaInfo:** Required for technical metadata extraction.
+
+### **Quick Start**
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone [https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git](https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git)
 
-# Create virtual environment
+# 2. Setup Virtual Environment
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On WSL/Linux
 
-# Install dependencies
+# 3. Install Dependencies
 pip install -r requirements.txt
 
-# Run Migrations
+# 4. Run Database Migrations
 python manage.py migrate
 
-# Start Redis (Required for Async Tasks)
-redis-server
-
-# Start Celery Worker
-celery -A cuajicine_api worker -l info
-
-# Start Development Server
+# 5. Start Development Server
 python manage.py runserver
 
 Developed by Arturo C.S. - Computer Engineering Student & Aspiring Pipeline TD.
