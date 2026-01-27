@@ -43,6 +43,14 @@ AXIOM follows an event-driven state flow to ensure no asset reaches a supervisor
 
 ---
 
+## 📚 Technical Documentation
+
+For a detailed analysis of the system's architecture diagram and its alignment with industry standards (MovieLabs 2030), please refer to the following specification:
+
+📄 [**Download AXIOM Architecture Specification (PDF)**](docs/AXIOM_Architecture_Spec.pdf)
+
+---
+
 ## 📦 Setup & Installation
 
 ### **Prerequisites**
