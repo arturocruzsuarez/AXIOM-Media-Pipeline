@@ -34,6 +34,7 @@ class AssetAdmin(admin.ModelAdmin):
 @admin.register(Version)
 class VersionAdmin(admin.ModelAdmin):
     list_display = (
+        'display_thumb',
         'get_project', 
         'asset', 
         'version_number', 
@@ -42,8 +43,8 @@ class VersionAdmin(admin.ModelAdmin):
         'approval_status'
     )
     list_filter = ('approval_status', 'asset__project')
+    readonly_fields = ('uuid', 'created_at', 'thumbnail', 'proxy_file_path', 'transcoding_status')
     search_fields = ('asset__name', 'uuid')
-    readonly_fields = ('uuid', 'created_at')
 
     @admin.display(description='Project')
     def get_project(self, obj):
@@ -64,6 +65,12 @@ class VersionAdmin(admin.ModelAdmin):
                 ", ".join(errors)
             )
         return format_html('<span style="color: #5cb85c; font-weight: bold;">✅ PASS</span>')
+    @admin.display(description='Preview')
+    def display_thumb(self, obj):
+        if obj.thumbnail:
+            # Creamos una pequeña vista previa de 100px
+            return format_html('<img src="{}" style="width: 100px; height: auto; border-radius: 5px;" />', obj.thumbnail.url)
+        return "No Thumb"
 
 # --- 6. Comentarios ---
 @admin.register(Comment)

@@ -85,6 +85,12 @@ class Version(models.Model):
 
     file = models.FileField(_("Original File"), upload_to=asset_version_path, max_length=500) 
     proxy_file_path = models.CharField(max_length=500, blank=True, null=True)
+    
+    
+    # NUEVO: Campo para la miniatura
+    thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
+    
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

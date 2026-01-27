@@ -1,25 +1,28 @@
-# --- Python & Django Basics ---
+# --- Python & Django ---
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 db.sqlite3
-.DS_Store
+# No ignores las migraciones, son vitales para que otros corran tu código
+!**/migrations/__init__.py 
 
-# --- Entornos Virtuales (PESADÍSIMO - Nunca subir) ---
+# --- Entornos ---
 venv/
-env/
-.env_test/
 .venv/
+env/
 
-# --- Variables de Entorno y Secretos (SEGURIDAD) ---
-.env
-.env.local
-
-# --- Media y Archivos de Usuario (No subir videos de prueba) ---
+# --- Media y Assets 
+# Ignora todos los videos de prueba y miniaturas
 media/
-static/
+# Ignora archivos temporales de procesamiento de video
+*.tmp
+*.temp
 
-# --- IDEs (Archivos de configuración del editor) ---
+# --- Logs de Sistema ---
+*.log
+# Logs específicos de FFmpeg si llegas a generarlos
+ffmpeg_debug.txt
+
+# --- IDEs ---
 .vscode/
 .idea/
+.DS_Store

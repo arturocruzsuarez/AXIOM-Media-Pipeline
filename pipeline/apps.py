@@ -5,5 +5,6 @@ class PipelineConfig(AppConfig):
     name = 'pipeline'
 
     def ready(self):
-        # Esta línea es vital para que el sensor se encienda
+        # Este import es vital. Registra los sensores (signals) 
+        # en cuanto el servidor se enciende.
         import pipeline.signals
