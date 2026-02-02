@@ -2,63 +2,56 @@ import subprocess
 import os
 from celery import shared_task
 from django.conf import settings
+from django.utils.text import slugify
 from .models import Version
+from .divergence_engine import PipelineStabilityIndex
 
 @shared_task(bind=True)
 def process_video_task(self, version_id):
+    engine = PipelineStabilityIndex()
     try:
-        # 1. Recuperar la instancia (Atomicidad)
         version = Version.objects.get(id=version_id)
+        version.ingest_and_verify(version.file.path)
         version.transcoding_status = Version.TranscodingStatus.PROCESSING
         version.save()
 
-        input_path = version.original_file_path
+        input_path = version.file.path 
+        directory = os.path.dirname(input_path)
+        base_name = os.path.splitext(os.path.basename(version.file.name))[0]
         
-        # Generar nombre para el proxy (ej: video_v1_proxy.mp4)
-        base_name = os.path.basename(input_path)
-        file_name, _ = os.path.splitext(base_name)
-        output_filename = f"{file_name}_proxy.mp4"
-        output_path = os.path.join(settings.MEDIA_ROOT, 'proxies', output_filename)
+        proxy_path = os.path.join(directory, f"{base_name}_proxy.mp4")
+        thumb_path = os.path.join(directory, f"{base_name}_thumb.jpg")
 
-        # Asegurar que el directorio existe
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # 2. Comando FFmpeg (Low-Level Manipulation)
-        # Convertimos a H.264 ligero (720p) para web
+        # Comando único con Watermark
+        watermark = f"AXIOM | {version.asset.project.title} | v{version.version_number:03d}"
         command = [
-            'ffmpeg',
-            '-y',                 # Sobreescribir si existe
-            '-i', input_path,     # Input
-            '-vf', 'scale=-2:720',# Escalar a 720p manteniendo aspect ratio
-            '-c:v', 'libx264',    # Codec de video
-            '-preset', 'fast',    # Velocidad de compresión
-            '-crf', '23',         # Calidad visual
-            '-c:a', 'aac',        # Codec de audio
-            '-b:a', '128k',       # Bitrate de audio
-            output_path
+            'ffmpeg', '-y', '-i', input_path,
+            '-vf', f"scale=-2:720,drawtext=text='{watermark}':x=10:y=H-45:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.4",
+            '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k',
+            proxy_path
         ]
 
-        # 3. Ejecución del Proceso (Subprocess)
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, # Capturamos logs técnicos de FFmpeg
-            text=True
-        )
-
-        if result.returncode != 0:
-            raise Exception(f"FFmpeg Error: {result.stderr}")
-
-        # 4. Actualización de Estado (Success)
-        version.proxy_file_path = output_path
-        version.transcoding_status = Version.TranscodingStatus.COMPLETED
-        version.save()
-        
-        return f"Version {version.version_number} processed successfully."
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode == 0:
+            # Generar miniatura
+            subprocess.run(['ffmpeg', '-y', '-i', input_path, '-ss', '00:00:05', '-vframes', '1', '-update', '1', thumb_path], check=True)
+            
+            engine.report_status('ffmpeg', success=True)
+            
+            # Guardar rutas relativas para evitar el DataError
+            p_slug = slugify(version.asset.project.title)
+            a_slug = slugify(version.asset.name)
+            v_str = f"v{version.version_number:03d}"
+            
+            version.proxy_file_path = os.path.join('assets', p_slug, a_slug, v_str, f"{base_name}_proxy.mp4")
+            version.thumbnail = os.path.join('assets', p_slug, a_slug, v_str, f"{base_name}_thumb.jpg")
+            version.transcoding_status = Version.TranscodingStatus.COMPLETED
+            version.save()
+        else:
+            engine.report_status('ffmpeg', success=False)
+            raise Exception(result.stderr)
 
     except Exception as e:
-        # 5. Manejo de Errores (Fail-safe)
-        if 'version' in locals():
-            version.transcoding_status = Version.TranscodingStatus.ERROR
-            version.save()
-        return f"Error processing version {version_id}: {str(e)}"
+        engine.report_status('ffmpeg', success=False)
+        Version.objects.filter(pk=version_id).update(transcoding_status=Version.TranscodingStatus.ERROR)
+        return str(e)

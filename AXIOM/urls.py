@@ -13,6 +13,7 @@ urlpatterns = [
     # --- LA TAQUILLA (Autenticación) ---
     # Esto genera el token para que los scripts externos se conecten
     path('api-token-auth/', views.obtain_auth_token),
+    path('pipeline/', include('pipeline.urls')),
 ]
 
 # Esto permite que AXIOM sirva los videos en modo desarrollo (muy importante para VFX)

@@ -127,7 +127,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -148,5 +148,14 @@ REST_FRAMEWORK = {
 # URL pública para acceder a los archivos
 MEDIA_URL = '/media/'
 
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+
 # Ruta física en tu disco donde se guardarán los assets
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+    }
+}

@@ -1,0 +1,150 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXIOM | Divergence Meter</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Nixie+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'pipeline/css/dashboard.css' %}">
+
+    <meta http-equiv="refresh" content="10">
+</head>
+
+<body>
+
+    <div class="meter-container">
+        <div class="status-label">Pipeline Stability Index (PSI)</div>
+
+        <div id="divergence-meter" class="divergence-display {% if is_stable %}stable{% else %}unstable{% endif %}"
+            data-target="{{ psi }}">
+            {{ psi }}
+        </div>
+
+        <div class="status-label">
+            Current State:
+            <span class="{% if is_stable %}stable{% else %}unstable{% endif %}">
+                {{ status }}
+            </span>
+        </div>
+
+        <div class="world-line">
+            {{ world_line }}
+        </div>
+
+        <div class="sensor-diagnostics">
+            <div class="status-label" style="text-align: left; margin-bottom: 10px; color: var(--nixie-orange);">
+                > Sensor Telemetry:
+            </div>
+            <table class="sensor-table">
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Health</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for name, info in sensors.items %}
+                    <tr>
+                        <td style="font-family: sans-serif; letter-spacing: 1px; color: #fff;">
+                            {{ name|upper }}
+                        </td>
+                        <td style="width: 40%;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ info.health_pct }}%;">
+                                    {{ info.health_pct }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td class="status-{{ info.status|lower }}">
+                            {{ info.status }}
+                        </td>
+                        <td class="action-text">
+                            {% if info.status == "NOMINAL" %}
+                            <span style="color: #666;">-- OK --</span>
+                            {% elif info.status == "DEGRADED" %}
+                            <span style="color: #ffff00;">[Check Logs]</span>
+                            {% else %}
+                            <span style="color: var(--axiom-red);">[SYSTEM RESET]</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        AXIOM Telemetry Engine v2.0 | Baseline: 0.132336 |
+    </footer>
+
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('divergence-meter');
+            const targetValue = container.getAttribute('data-target').trim();
+            const targetChars = targetValue.split('');
+
+            // Limpiamos el texto plano inicial para construir los objetos 3D
+            container.innerHTML = '';
+
+            // Creamos los tubos Nixie uno por uno
+            const tubeElements = targetChars.map(char => {
+                const tube = document.createElement('div');
+                tube.className = 'nixie-tube';
+
+                // Estilo especial para el punto decimal
+                if (char === '.') {
+                    // tube.style.width = '20px';  <-- LÍNEA ELIMINADA: Ahora usa el ancho estándar (80px)
+                    tube.style.background = 'transparent'; // Sin fondo de cristal
+                    tube.style.border = 'none'; // Sin borde
+                    tube.style.boxShadow = 'none'; // Sin sombra
+                    // El centrado es automático gracias al CSS del .nixie-tube
+                }
+
+                const digit = document.createElement('div');
+                digit.className = 'nixie-digit';
+                digit.textContent = char;
+
+                tube.appendChild(digit);
+                container.appendChild(tube);
+                return digit;
+            });
+
+            // Animación de "Búsqueda de Línea de Mundo"
+            const duration = 2000; // 2 segundos de caos
+            const startTime = Date.now();
+
+            const interval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+
+                tubeElements.forEach((digit, index) => {
+                    // El punto no cambia
+                    if (targetChars[index] === '.') return;
+
+                    // Bloqueo progresivo de izquierda a derecha
+                    if (progress < (index / targetChars.length)) {
+                        digit.textContent = Math.floor(Math.random() * 10);
+                    } else {
+                        digit.textContent = targetChars[index];
+                    }
+                });
+
+                if (progress >= 1) {
+                    clearInterval(interval);
+                    // Aseguramos el valor exacto final
+                    tubeElements.forEach((digit, index) => {
+                        digit.textContent = targetChars[index];
+                    });
+                }
+            }, 50);
+        };
+    </script>
+</body>
+
+</html>

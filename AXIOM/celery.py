@@ -1,8 +1,13 @@
 import os
 from celery import Celery
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cuajicine_api.settings')
+# Seteamos las variables de entorno de Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'AXIOM.settings')
 
-app = Celery('cuajicine_api')
+app = Celery('AXIOM')
+
+# Leemos la configuración de Celery desde los settings de Django
 app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Autodescubrimiento de tareas en tus apps (como pipeline/tasks.py)
 app.autodiscover_tasks()
