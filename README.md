@@ -1,78 +1,70 @@
-# AXIOM: Cloud-Native Media Pipeline
+# 📟 AXIOM | Media Asset Pipeline & Divergence Engine
 
-**AXIOM** is a high-performance Digital Asset Management (DAM) system specifically architected for VFX and Animation production environments. The system focuses on absolute data integrity, automated Quality Control (QC) orchestration, and atomic version traceability.
-
-> **Status:** Active Development (v0.1.0)  
-> **Role:** Lead Backend Engineer & Architect (Target: Aspiring Pipeline TD)
+**AXIOM** is an industrial-grade Media Asset Management (MAM) system designed specifically for VFX and film production environments. It goes beyond simple file hosting by auditing the technical integrity of every bit and visualizing production stability through a custom **Divergence Engine** inspired by Nixie tube aesthetics.
 
 ---
 
-## 🚀 Key Features (Implemented & Functional)
+## 🚀 Key Features
 
-* **Cryptographic Integrity ($SHA-256$):** Implementation of binary-level hashing for every ingested asset. This ensures bit-perfect integrity and enables intelligent data de-duplication across the storage layer.
-* **Automated Technical QC:** Real-time metadata extraction using `PyMediaInfo`. The system automatically validates resolution, FPS, and color space against project-specific targets, triggering instant **PASS/FAIL** status.
-* **Dynamic Media Engine (FFmpeg):** Automated creation of 720p H.264 review proxies and frame-accurate thumbnails via FFmpeg subprocesses during the ingest phase.
-* **Atomic Versioning:** Industry-standard versioning logic (`v001`, `v002`) to enforce a **Single Source of Truth (SSOT)** and prevent naming collisions.
+### 📈 Nixie-Powered Divergence Engine
+A real-time monitoring system that calculates the **Pipeline Stability Index (PSI)**.
+* **Dynamic Telemetry:** The meter fluctuates based on integrity checks, QC failures, and data redundancy.
+* **High-End UI:** A 3D Nixie tube visualization featuring glass-morphism, glow effects, and real-time flicker.
+
+### 🛡️ Data Integrity & Deduplication
+* **SHA-256 Hashing:** The system implements a "Storage-Aware" architecture that automatically blocks duplicate uploads by comparing cryptographic hashes, significantly optimizing server storage.
+* **VFX Hierarchy:** Built on a strict industry-standard logic: `Project > Asset > Version > Comment`.
+* **Role-Based Access Control:** Artists operate in a technical read-only environment, while Supervisors hold full authority over Quality Control (QC) and approval status.
+
+### ⚙️ Automated "Video DNA" Extraction
+Leveraging **FFmpeg** and **MediaInfo** to automatically extract and validate:
+* **Resolution & FPS:** Real-time validation against project-specific targets.
+* **Color Space:** Automatic detection of pixel formats (YUV, ACEScg, sRGB, etc.).
+* **Duration & File Size:** Precise tracking down to the millisecond and byte level.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### **Current Core**
-* **Backend:** Python 3.10+, Django 5.0.
-* **Media Processing:** FFmpeg (Transcoding), PyMediaInfo (Technical Metadata).
-* **Database:** PostgreSQL (Production-ready) / SQLite (Development).
-
-### **Architecture Roadmap (Upcoming Features)**
-* **Distributed Task Queue:** Decoupling heavy transcoding loads from the web server using **Celery** and **Redis**.
-* **Containerization:** Full infrastructure orchestration via **Docker** and **Kubernetes**.
-* **Cloud Storage:** Native **AWS S3** integration for high-availability asset storage.
+* **Backend:** Django (Python 3.x)
+* **Distributed Processing:** Celery + Redis
+* **Video Engine:** FFmpeg / PyMediaInfo
+* **Database:** PostgreSQL / SQLite
+* **Frontend:** HTML5 (Canvas/JS for the Nixie Engine), CSS3 (VFX Glassmorphism)
 
 ---
 
-## 🏗️ Pipeline Architecture
+## 🏗️ System Architecture
 
-AXIOM follows an event-driven state flow to ensure no asset reaches a supervisor without passing technical validation:
+The pipeline utilizes a micro-service-oriented architecture to ensure video processing never bottlenecks the user interface.
 
-
-
-1.  **Ingest Layer:** Enforces naming conventions and calculates the file's unique digital fingerprint.
-2.  **Validation Layer:** Compares real-time binary metadata against project requirements.
-3.  **Processing Layer:** Orchestrates FFmpeg instances to generate lightweight review media.
-4.  **Persistence Layer:** Updates the PostgreSQL registry with proxy paths and final QC states.
+1. **Ingest:** User uploads an asset via the Django Admin.
+2. **Validation:** The `clean()` method executes a SHA-256 hash check to prevent redundancy.
+3. **Task Queue:** Celery receives the Version UUID and triggers a background metadata analysis.
+4. **Telemetry:** The **Divergence Engine** updates the global PSI based on the health of the incoming data.
 
 ---
 
-## 📚 Technical Documentation
+## 📋 Installation & Setup
 
-For a detailed analysis of the system's architecture diagram and its alignment with industry standards (MovieLabs 2030), please refer to the following specification:
-
-📄 [**Download AXIOM Architecture Specification (PDF)**](docs/AXIOM_Architecture_Spec.pdf)
-
----
-
-## 📦 Setup & Installation
-
-### **Prerequisites**
-* **FFmpeg:** Must be installed and available in the system PATH (Standard in WSL/Linux).
-* **MediaInfo:** Required for technical metadata extraction.
-
-### **Quick Start**
-```bash
-# 1. Clone the repository
-git clone [https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git](https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git)
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git](https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git)
+   cd AXIOM-Media-Pipeline
 
 # 2. Setup Virtual Environment
 python -m venv venv
-source venv/bin/activate  # On WSL/Linux
-
-# 3. Install Dependencies
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 4. Run Database Migrations
-python manage.py migrate
+# 3. Launch Services:
+Redis: redis-server
 
-# 5. Start Development Server
-python manage.py runserver
+Worker: celery -A AXIOM worker --loglevel=info
+
+Migrate: python manage.py migrate
+
+Server: python manage.py runserver
+
 
 Developed by Arturo C.S. - Computer Engineering Student & Aspiring Pipeline TD.
