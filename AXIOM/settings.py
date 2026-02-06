@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,6 +150,13 @@ REST_FRAMEWORK = {
 MEDIA_URL = '/media/'
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
+
+CELERY_BEAT_SCHEDULE = {
+    'system-heartbeat-every-15-mins': {
+        'task': 'pipeline.tasks.run_system_diagnostic',
+        'schedule': 900.0,  # Cada 15 minutos (900 segundos)
+    },
+}
 
 # Ruta física en tu disco donde se guardarán los assets
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

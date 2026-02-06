@@ -1,9 +1,11 @@
 import subprocess
 import os
+import shutil
 from celery import shared_task
 from django.conf import settings
+from django.db import connection 
 from django.utils.text import slugify
-from .models import Version
+from .models import Version, SystemHealth
 from .divergence_engine import PipelineStabilityIndex
 
 @shared_task(bind=True)
@@ -55,3 +57,45 @@ def process_video_task(self, version_id):
         engine.report_status('ffmpeg', success=False)
         Version.objects.filter(pk=version_id).update(transcoding_status=Version.TranscodingStatus.ERROR)
         return str(e)
+
+@shared_task
+def run_system_diagnostic():
+    """NUEVO: La tarea que hace que el Punto 2 y 3 no sean 'promesas vacías'."""
+    # 1. Medir STORAGE (Espacio real en disco)
+    total, used, free = shutil.disk_usage("/")
+    storage_val = (free / total) * 100
+
+    # 2. Medir DATABASE (Latencia/Conexión)
+    try:
+        connection.ensure_connection()
+        db_val = 100.0
+    except:
+        db_val = 0.0
+
+    # 3. Medir FFMPEG (Disponibilidad del binario)
+    try:
+        res = subprocess.run(['ffmpeg', '-version'], capture_output=True)
+        ffmpeg_val = 100.0 if res.returncode == 0 else 0.0
+    except:
+        ffmpeg_val = 0.0
+
+    # 4. Medir INTEGRIDAD (Basado en el historial de QC)
+    # Calculamos qué porcentaje de las versiones totales pasaron el QC
+    total_versions = Version.objects.count()
+    if total_versions > 0:
+        # Aquí asumimos que tienes un campo 'qc_passed' o similar, 
+        # si no, filtramos por las que NO tengan errores.
+        passed_versions = Version.objects.filter(approval_status='APPROVED').count()
+        integrity_val = (passed_versions / total_versions) * 100
+    else:
+        integrity_val = 100.0
+
+    # GUARDAR EN LA BASE DE DATOS
+    health, _ = SystemHealth.objects.get_or_create(id=1)
+    health.storage_score = storage_val
+    health.database_score = db_val
+    health.ffmpeg_score = ffmpeg_val
+    health.integrity_score = integrity_val
+    health.save()
+
+    return f"Diagnostic Success: S:{storage_val:.1f}% | I:{integrity_val:.1f}%"

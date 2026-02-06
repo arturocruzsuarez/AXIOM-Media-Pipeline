@@ -6,21 +6,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AXIOM | Divergence Meter</title>
-
     <link href="https://fonts.googleapis.com/css2?family=Nixie+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'pipeline/css/dashboard.css' %}">
-
     <meta http-equiv="refresh" content="10">
 </head>
 
 <body>
-
     <div class="meter-container">
         <div class="status-label">Pipeline Stability Index (PSI)</div>
 
         <div id="divergence-meter" class="divergence-display {% if is_stable %}stable{% else %}unstable{% endif %}"
-            data-target="{{ psi }}">
-            {{ psi }}
+            data-target="{{ divergence_index }}">
+            {{ divergence_index }}
         </div>
 
         <div class="status-label">
@@ -34,53 +31,81 @@
             {{ world_line }}
         </div>
 
-        <div class="sensor-diagnostics">
-            <div class="status-label" style="text-align: left; margin-bottom: 10px; color: var(--nixie-orange);">
-                > Sensor Telemetry:
+        <div class="diagnostic-panel" style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
+            <div class="status-label"
+                style="text-align: left; margin-bottom: 15px; color: var(--nixie-orange); font-size: 0.9em;">
+                > System Hardware Diagnostic:
             </div>
-            <table class="sensor-table">
-                <thead>
-                    <tr>
-                        <th>Component</th>
-                        <th>Health</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for name, info in sensors.items %}
-                    <tr>
-                        <td style="font-family: sans-serif; letter-spacing: 1px; color: #fff;">
-                            {{ name|upper }}
-                        </td>
-                        <td style="width: 40%;">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: {{ info.health_pct }}%;">
-                                    {{ info.health_pct }}%
-                                </div>
+
+            <table
+                style="width: 100%; border-collapse: collapse; color: #eee; font-family: sans-serif; font-size: 0.85em;">
+                <tr>
+                    <td style="padding: 10px 5px; width: 100px;">DATABASE</td>
+                    <td style="width: 60%;">
+                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: {{ health.database_score }}%; background: #00ff00; height: 100%;"></div>
+                        </div>
+                    </td>
+                    <td style="padding: 0 10px; text-align: right;">{{ health.database_score|floatformat:1 }}%</td>
+                    <td
+                        style="color: {% if health.database_score > 90 %}#00ff00{% else %}#ff0000{% endif %}; font-weight: bold;">
+                        {% if health.database_score > 90 %}NOMINAL{% else %}CRITICAL{% endif %}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 10px 5px;">STORAGE</td>
+                    <td>
+                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: {{ health.storage_score }}%; background: #00ccff; height: 100%;"></div>
+                        </div>
+                    </td>
+                    <td style="padding: 0 10px; text-align: right;">{{ health.storage_score|floatformat:1 }}%</td>
+                    <td
+                        style="color: {% if health.storage_score > 10 %}#00ccff{% else %}#ffff00{% endif %}; font-weight: bold;">
+                        {% if health.storage_score > 10 %}NOMINAL{% else %}LOW{% endif %}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 10px 5px;">FFMPEG</td>
+                    <td>
+                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: {{ health.ffmpeg_score }}%; background: #ff00ff; height: 100%;"></div>
+                        </div>
+                    </td>
+                    <td style="padding: 0 10px; text-align: right;">{{ health.ffmpeg_score|floatformat:1 }}%</td>
+                    <td
+                        style="color: {% if health.ffmpeg_score > 0 %}#ff00ff{% else %}#ff0000{% endif %}; font-weight: bold;">
+                        {% if health.ffmpeg_score > 0 %}READY{% else %}OFFLINE{% endif %}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 10px 5px;">INTEGRITY</td>
+                    <td>
+                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div
+                                style="width: {{ health.integrity_score }}%; background: var(--nixie-orange); height: 100%;">
                             </div>
-                        </td>
-                        <td class="status-{{ info.status|lower }}">
-                            {{ info.status }}
-                        </td>
-                        <td class="action-text">
-                            {% if info.status == "NOMINAL" %}
-                            <span style="color: #666;">-- OK --</span>
-                            {% elif info.status == "DEGRADED" %}
-                            <span style="color: #ffff00;">[Check Logs]</span>
-                            {% else %}
-                            <span style="color: var(--axiom-red);">[SYSTEM RESET]</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
+                        </div>
+                    </td>
+                    <td style="padding: 0 10px; text-align: right;">{{ health.integrity_score|floatformat:1 }}%</td>
+                    <td
+                        style="color: {% if health.integrity_score > 95 %}var(--nixie-orange){% else %}#ffcc00{% endif %}; font-weight: bold;">
+                        {% if health.integrity_score > 95 %}OPTIMAL{% else %}WARNING{% endif %}
+                    </td>
+                </tr>
             </table>
+
+            <p style="font-size: 0.75em; color: #555; margin-top: 15px; text-align: right;">
+                Last Heartbeat: {{ health.last_diagnostic|date:"H:i:s" }}
+            </p>
         </div>
     </div>
 
     <footer>
-        AXIOM Telemetry Engine v2.0 | Baseline: 0.132336 |
+        AXIOM Telemetry Engine v2.0 | Baseline: 0.132336 | El Psy Kongroo
     </footer>
 
     <script>
@@ -88,46 +113,32 @@
             const container = document.getElementById('divergence-meter');
             const targetValue = container.getAttribute('data-target').trim();
             const targetChars = targetValue.split('');
-
-            // Limpiamos el texto plano inicial para construir los objetos 3D
             container.innerHTML = '';
 
-            // Creamos los tubos Nixie uno por uno
             const tubeElements = targetChars.map(char => {
                 const tube = document.createElement('div');
                 tube.className = 'nixie-tube';
-
-                // Estilo especial para el punto decimal
                 if (char === '.') {
-                    // tube.style.width = '20px';  <-- LÍNEA ELIMINADA: Ahora usa el ancho estándar (80px)
-                    tube.style.background = 'transparent'; // Sin fondo de cristal
-                    tube.style.border = 'none'; // Sin borde
-                    tube.style.boxShadow = 'none'; // Sin sombra
-                    // El centrado es automático gracias al CSS del .nixie-tube
+                    tube.style.background = 'transparent';
+                    tube.style.border = 'none';
+                    tube.style.boxShadow = 'none';
                 }
-
                 const digit = document.createElement('div');
                 digit.className = 'nixie-digit';
                 digit.textContent = char;
-
                 tube.appendChild(digit);
                 container.appendChild(tube);
                 return digit;
             });
 
-            // Animación de "Búsqueda de Línea de Mundo"
-            const duration = 2000; // 2 segundos de caos
+            const duration = 2000;
             const startTime = Date.now();
-
             const interval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const progress = elapsed / duration;
 
                 tubeElements.forEach((digit, index) => {
-                    // El punto no cambia
                     if (targetChars[index] === '.') return;
-
-                    // Bloqueo progresivo de izquierda a derecha
                     if (progress < (index / targetChars.length)) {
                         digit.textContent = Math.floor(Math.random() * 10);
                     } else {
@@ -137,7 +148,6 @@
 
                 if (progress >= 1) {
                     clearInterval(interval);
-                    // Aseguramos el valor exacto final
                     tubeElements.forEach((digit, index) => {
                         digit.textContent = targetChars[index];
                     });

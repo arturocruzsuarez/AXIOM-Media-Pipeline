@@ -210,3 +210,18 @@ class Comment(models.Model):
     is_resolved = models.BooleanField(default=False)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
     created_at = models.DateTimeField(auto_now_add=True)
+    
+class SystemHealth(models.Model):
+    """Almacena el estado técnico global del Pipeline."""
+    storage_score = models.FloatField(default=100.0)
+    database_score = models.FloatField(default=100.0)
+    ffmpeg_score = models.FloatField(default=100.0)
+    integrity_score = models.FloatField(default=100.0)
+    last_diagnostic = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "System Health"
+        verbose_name_plural = "System Health"
+
+    def __str__(self):
+        return f"Health Status: {self.last_diagnostic.strftime('%Y-%m-%d %H:%M')}"
