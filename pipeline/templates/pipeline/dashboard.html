@@ -6,14 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AXIOM | Divergence Meter</title>
+
     <link href="https://fonts.googleapis.com/css2?family=Nixie+One&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="{% static 'pipeline/css/dashboard.css' %}">
+
     <meta http-equiv="refresh" content="10">
 </head>
 
 <body>
     <div class="meter-container">
-        <div class="status-label">Pipeline Stability Index (PSI)</div>
+        <div class="status-label">Pipeline Stability Index (PSI - SRE Entropy)</div>
 
         <div id="divergence-meter" class="divergence-display {% if is_stable %}stable{% else %}unstable{% endif %}"
             data-target="{{ divergence_index }}">
@@ -31,81 +34,76 @@
             {{ world_line }}
         </div>
 
-        <div class="diagnostic-panel" style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
-            <div class="status-label"
-                style="text-align: left; margin-bottom: 15px; color: var(--nixie-orange); font-size: 0.9em;">
-                > System Hardware Diagnostic:
-            </div>
+        <div class="diagnostic-panel">
+            <div class="panel-title">> System Hardware Diagnostic (Live Pulse):</div>
 
-            <table
-                style="width: 100%; border-collapse: collapse; color: #eee; font-family: sans-serif; font-size: 0.85em;">
+            <table class="hardware-table">
                 <tr>
-                    <td style="padding: 10px 5px; width: 100px;">DATABASE</td>
+                    <td>DATABASE</td>
                     <td style="width: 60%;">
-                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: {{ health.database_score }}%; background: #00ff00; height: 100%;"></div>
+                        <div class="progress-track">
+                            <div class="progress-fill fill-db" style="width: {{ health.database_score }}%;"></div>
                         </div>
                     </td>
                     <td style="padding: 0 10px; text-align: right;">{{ health.database_score|floatformat:1 }}%</td>
                     <td
-                        style="color: {% if health.database_score > 90 %}#00ff00{% else %}#ff0000{% endif %}; font-weight: bold;">
+                        style="color: {% if health.database_score > 90 %}var(--neon-green){% else %}var(--neon-red){% endif %}; font-weight: bold;">
                         {% if health.database_score > 90 %}NOMINAL{% else %}CRITICAL{% endif %}
                     </td>
                 </tr>
 
                 <tr>
-                    <td style="padding: 10px 5px;">STORAGE</td>
+                    <td>STORAGE</td>
                     <td>
-                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: {{ health.storage_score }}%; background: #00ccff; height: 100%;"></div>
+                        <div class="progress-track">
+                            <div class="progress-fill fill-storage" style="width: {{ health.storage_score }}%;"></div>
                         </div>
                     </td>
                     <td style="padding: 0 10px; text-align: right;">{{ health.storage_score|floatformat:1 }}%</td>
                     <td
-                        style="color: {% if health.storage_score > 10 %}#00ccff{% else %}#ffff00{% endif %}; font-weight: bold;">
+                        style="color: {% if health.storage_score > 10 %}var(--neon-blue){% else %}var(--neon-yellow){% endif %}; font-weight: bold;">
                         {% if health.storage_score > 10 %}NOMINAL{% else %}LOW{% endif %}
                     </td>
                 </tr>
 
                 <tr>
-                    <td style="padding: 10px 5px;">FFMPEG</td>
+                    <td>FFMPEG</td>
                     <td>
-                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: {{ health.ffmpeg_score }}%; background: #ff00ff; height: 100%;"></div>
+                        <div class="progress-track">
+                            <div class="progress-fill fill-ffmpeg" style="width: {{ health.ffmpeg_score }}%;"></div>
                         </div>
                     </td>
                     <td style="padding: 0 10px; text-align: right;">{{ health.ffmpeg_score|floatformat:1 }}%</td>
                     <td
-                        style="color: {% if health.ffmpeg_score > 0 %}#ff00ff{% else %}#ff0000{% endif %}; font-weight: bold;">
+                        style="color: {% if health.ffmpeg_score > 0 %}var(--neon-pink){% else %}var(--neon-red){% endif %}; font-weight: bold;">
                         {% if health.ffmpeg_score > 0 %}READY{% else %}OFFLINE{% endif %}
                     </td>
                 </tr>
 
                 <tr>
-                    <td style="padding: 10px 5px;">INTEGRITY</td>
+                    <td>INTEGRITY</td>
                     <td>
-                        <div style="background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div
-                                style="width: {{ health.integrity_score }}%; background: var(--nixie-orange); height: 100%;">
+                        <div class="progress-track">
+                            <div class="progress-fill fill-integrity" style="width: {{ health.integrity_score }}%;">
                             </div>
                         </div>
                     </td>
                     <td style="padding: 0 10px; text-align: right;">{{ health.integrity_score|floatformat:1 }}%</td>
                     <td
-                        style="color: {% if health.integrity_score > 95 %}var(--nixie-orange){% else %}#ffcc00{% endif %}; font-weight: bold;">
+                        style="color: {% if health.integrity_score > 95 %}var(--nixie-orange){% else %}var(--neon-yellow){% endif %}; font-weight: bold;">
                         {% if health.integrity_score > 95 %}OPTIMAL{% else %}WARNING{% endif %}
                     </td>
                 </tr>
             </table>
 
-            <p style="font-size: 0.75em; color: #555; margin-top: 15px; text-align: right;">
-                Last Heartbeat: {{ health.last_diagnostic|date:"H:i:s" }}
+            <p class="telemetry-time">
+                Last Telemetry Sync: {{ health.last_diagnostic|date:"H:i:s" }}
             </p>
         </div>
     </div>
 
     <footer>
-        AXIOM Telemetry Engine v2.0 | Baseline: 0.132336 | El Psy Kongroo
+        AXIOM Telemetry Engine v2.0 | Optimal Line: 0.000000 | 
     </footer>
 
     <script>
@@ -117,37 +115,44 @@
 
             const tubeElements = targetChars.map(char => {
                 const tube = document.createElement('div');
-                tube.className = 'nixie-tube';
-                if (char === '.') {
-                    tube.style.background = 'transparent';
-                    tube.style.border = 'none';
-                    tube.style.boxShadow = 'none';
-                }
+
+                // Aplicamos la clase de tubo Nixie y la clase especial si es un punto
+                tube.className = char === '.' ? 'nixie-tube nixie-dot' : 'nixie-tube';
+
                 const digit = document.createElement('div');
                 digit.className = 'nixie-digit';
                 digit.textContent = char;
+
                 tube.appendChild(digit);
                 container.appendChild(tube);
+
                 return digit;
             });
 
+            // Duración de la animación: 2 segundos
             const duration = 2000;
             const startTime = Date.now();
+
             const interval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const progress = elapsed / duration;
 
                 tubeElements.forEach((digit, index) => {
+                    // Si es el punto decimal, no lo animamos
                     if (targetChars[index] === '.') return;
+
+                    // Efecto de rotación de números aleatorios
                     if (progress < (index / targetChars.length)) {
                         digit.textContent = Math.floor(Math.random() * 10);
                     } else {
+                        // Se detiene en el valor real
                         digit.textContent = targetChars[index];
                     }
                 });
 
                 if (progress >= 1) {
                     clearInterval(interval);
+                    // Aseguramos el valor exacto al final
                     tubeElements.forEach((digit, index) => {
                         digit.textContent = targetChars[index];
                     });

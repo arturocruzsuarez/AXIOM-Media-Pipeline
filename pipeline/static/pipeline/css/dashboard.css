@@ -1,11 +1,17 @@
-/* AXIOM | Nixie Hi-Fi Style */
+/* AXIOM | Nixie Hi-Fi Style & SRE Telemetry */
 :root {
     --nixie-orange: #ffaa00;
     --nixie-glow: #ff6600;
     --nixie-dim: #331a00;
-    /* Color del filamento apagado */
     --glass-reflection: rgba(255, 255, 255, 0.15);
     --socket-metal: #1a1a1a;
+
+    /* Colores Neón para Telemetría SRE */
+    --neon-green: #00ff00;
+    --neon-blue: #00ccff;
+    --neon-pink: #ff00ff;
+    --neon-red: #ff3333;
+    --neon-yellow: #ffff00;
 }
 
 body {
@@ -36,17 +42,22 @@ body {
     width: 80px;
     height: 140px;
     background: linear-gradient(to right,
-            #111 0%,
-            #222 20%,
-            #333 50%,
-            #222 80%,
-            #111 100%);
+            #111 0%, #222 20%, #333 50%, #222 80%, #111 100%);
     border-radius: 40px 40px 5px 5px;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Excepción para el punto decimal */
+.nixie-dot {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 20px !important;
+    margin: 0 -5px;
 }
 
 /* Reflejo del cristal (Efecto 3D) */
@@ -68,7 +79,6 @@ body {
     z-index: 2;
     position: relative;
     line-height: 1;
-    /* Brillo de neón multicapa */
     text-shadow:
         0 0 5px #fff,
         0 0 10px var(--nixie-orange),
@@ -88,40 +98,99 @@ body {
     z-index: 4;
 }
 
-/* Filamento apagado de fondo (opcional para profundidad) */
-.digit-bg {
-    position: absolute;
-    color: var(--nixie-dim);
-    font-size: 6rem;
-    z-index: 1;
-    opacity: 0.3;
-    text-shadow: none;
-}
-
-/* --- Tabla de Sensores y otros estilos --- */
+/* --- TELEMETRÍA DE HARDWARE (Nuevas Clases) --- */
 .meter-container {
     width: 100%;
     max-width: 900px;
     text-align: center;
 }
 
-.sensor-table {
+.diagnostic-panel {
+    margin-top: 40px;
+    border-top: 1px solid #333;
+    padding-top: 20px;
+    text-align: left;
+}
+
+.panel-title {
+    margin-bottom: 15px;
+    color: var(--nixie-orange);
+    font-size: 0.9em;
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+.hardware-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 30px;
-    color: #888;
+    color: #eee;
+    font-family: sans-serif;
+    font-size: 0.85em;
 }
 
-.sensor-table th {
+.hardware-table td {
+    padding: 12px 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hardware-table td:first-child {
+    width: 100px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.progress-track {
+    background: #222;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+}
+
+/* Colores de las barras */
+.fill-db {
+    background: var(--neon-green);
+}
+
+.fill-storage {
+    background: var(--neon-blue);
+}
+
+.fill-ffmpeg {
+    background: var(--neon-pink);
+}
+
+.fill-integrity {
+    background: var(--nixie-orange);
+}
+
+.telemetry-time {
+    font-size: 0.75em;
+    color: #555;
+    margin-top: 15px;
+    text-align: right;
+    font-family: monospace;
+}
+
+.world-line {
     color: var(--nixie-orange);
-    text-transform: uppercase;
-    padding: 10px;
-    border-bottom: 2px solid #222;
+    font-size: 1.2em;
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 2px;
 }
 
-.sensor-table td {
-    padding: 15px;
-    border-bottom: 1px solid #111;
+footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #555;
+    font-family: monospace;
+    font-size: 0.85em;
 }
 
 @keyframes nixie-flicker {

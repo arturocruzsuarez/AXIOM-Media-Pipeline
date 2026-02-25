@@ -1,29 +1,43 @@
 import os
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Version
+from .models import Version, Asset
 from .tasks import process_video_task
 
 @receiver(post_save, sender=Version)
 def axiom_processing_trigger(sender, instance, created, **kwargs):
     """
     Sensor de AXIOM: Disparador del Pipeline.
-    Detecta la creación de una versión y activa el motor asíncrono.
     """
-    if created and instance.file:
-        # 1. INGESTA RÁPIDA (Metadatos y Hash)
-        # Se queda aquí porque es una operación de base de datos veloz.
+    # Usamos un flag 'is_processing_triggered' para evitar bucles infinitos 
+    # si el post_save se llama de nuevo al actualizar el status.
+    if created and instance.file and not getattr(instance, '_is_processing_triggered', False):
+        
         archivo_fisico = instance.file.path
+        
+        # 1. INGESTA RÁPIDA (ADN y Metadatos)
         ingesta_ok = instance.ingest_and_verify(archivo_fisico)
         
         if ingesta_ok:
-            # 2. DISPARO ASÍNCRONO (Delegación a Celery)
-            # Esto envía el ID a la tarea que ya configuramos en tasks.py
-            process_video_task.delay(instance.pk)
+            instance._is_processing_triggered = True # Previene doble ejecución
             
-            # Actualizamos el estado para que el Dashboard se mueva
-            Version.objects.filter(pk=instance.pk).update(transcoding_status='PROCESSING')
+            # 2. ENRUTAMIENTO INTELIGENTE (Agnóstico)
+            if instance.asset.category == Asset.AssetCategory.VIDEO:
+                # Si es video, va a la fábrica de Proxies
+                process_video_task.delay(instance.pk)
+                Version.objects.filter(pk=instance.pk).update(transcoding_status='PROCESSING')
+                print(f"🚀 AXIOM: Video detectado para {instance}. Tarea delegada a Celery.")
             
-            print(f"🚀 AXIOM: Pipeline activado para {instance}. Tarea delegada a Celery.")
+            elif instance.asset.category == Asset.AssetCategory.CODE:
+                # Si es código (ej. un script de Blender), no hay transcodificación
+                Version.objects.filter(pk=instance.pk).update(transcoding_status='COMPLETED')
+                print(f"⚡ AXIOM: Script {instance} registrado. No requiere Celery.")
+            
+            else:
+                # Otros formatos
+                Version.objects.filter(pk=instance.pk).update(transcoding_status='COMPLETED')
+                print(f"✅ AXIOM: Archivo genérico {instance} registrado en la línea de tiempo.")
+
         else:
-            print(f"⚠️ AXIOM: Error en ingesta inicial. Pipeline abortado.")
+            Version.objects.filter(pk=instance.pk).update(transcoding_status='ERROR')
+            print(f"⚠️ AXIOM: Divergencia detectada. Error en ingesta inicial.")

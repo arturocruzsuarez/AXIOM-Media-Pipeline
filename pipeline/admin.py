@@ -78,6 +78,7 @@ class VersionAdmin(admin.ModelAdmin):
     # BLINDAJE TÉCNICO COMPLETO
     readonly_fields = (
         'uuid', 
+        'version_number', 
         'created_at', 
         'thumbnail', 
         'display_proxy', # Link clickable
@@ -146,9 +147,14 @@ class VersionAdmin(admin.ModelAdmin):
     def qc_status(self, obj):
         errors = obj.check_qc()
         if errors:
+            # CORRECCIÓN: Convertimos explícitamente cada error a string normal
+            # antes de intentar unirlos con join o pasarlos a format_html
+            error_list = [str(error) for error in errors]
+            error_string = ", ".join(error_list)
+            
             return format_html(
                 '<span style="color: #d9534f; font-weight: bold; cursor: help;" title="{}">⚠️ FAIL</span>',
-                ", ".join(errors)
+                error_string
             )
         return format_html('<span style="color: #5cb85c; font-weight: bold;">✅ PASS</span>')
 

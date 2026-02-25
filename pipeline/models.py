@@ -4,7 +4,8 @@ import os
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError 
+from django.db import transaction
 
 # Importamos las utilidades de procesamiento y el motor de estabilidad
 from .utils import calculate_sha256, asset_version_path, get_video_metadata
@@ -47,8 +48,22 @@ class Project(models.Model):
         return self.title
 
 # --- 4. Asset (Entidad Lógica) ---
-class Asset(models.Model):
-    name = models.CharField(_("Asset Name"), max_length=255)
+class Asset(models.Model): 
+    # Añadimos categorías para ser agnósticos al formato
+    class AssetCategory(models.TextChoices):
+        VIDEO = 'VIDEO', _('Video/Footage')
+        MODEL_3D = '3D', _('3D Model/Asset')
+        AUDIO = 'AUDIO', _('Audio/Score')
+        CODE = 'CODE', _('Script/Tool')
+        IMAGE = 'IMAGE', _('Texture/Concept')
+        OTHER = 'OTHER', _('Generic Data')
+        
+    name = models.CharField(_("Asset Name"), max_length=255) 
+    category = models.CharField(
+        max_length=10, 
+        choices=AssetCategory.choices, 
+        default=AssetCategory.VIDEO
+    )
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='assets')
     checksum_sha256 = models.CharField(_("SHA-256 Checksum"), max_length=64, unique=True, null=True, blank=True)
     
@@ -84,7 +99,8 @@ class Version(models.Model):
     duration = models.FloatField(null=True, blank=True, verbose_name=_("Duration (sec)"))
     filesize = models.BigIntegerField(null=True, blank=True, verbose_name=_("File Size (bytes)"))
     color_space = models.CharField(max_length=500, default='ACEScg') 
-    timecode_start = models.CharField(max_length=11, default="00:00:00:00")
+    timecode_start = models.CharField(max_length=11, default="00:00:00:00") 
+    extra_metadata = models.JSONField(default=dict, blank=True)
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='versions', verbose_name=_("Asset"))
     version_number = models.PositiveIntegerField() 
@@ -112,61 +128,111 @@ class Version(models.Model):
     # --- Lógica de Negocio y Sensores de Estabilidad ---
 
     def ingest_and_verify(self, file_path):
-        """Extrae ADN del archivo y reporta salud."""
+        """Extrae ADN del archivo de forma agnóstica para cumplir con el SSOT."""
         try:
-            # 1. Sensor de Integridad
+            # 1. Sensor de Integridad (Universal)
+            # Esto se ejecuta para TODO archivo, cumpliendo con la "Higiene de Datos"
             generated_hash = calculate_sha256(file_path)
+            
+            # Verificamos si el hash coincide con lo que el sistema espera (SSOT)
             is_integrity_ok = not (self.asset.checksum_sha256 and self.asset.checksum_sha256 != generated_hash)
             engine.report_status('integrity', success=is_integrity_ok)
             
+            # El Asset (entidad lógica) guarda la "verdad" del contenido
             self.asset.checksum_sha256 = generated_hash
             self.asset.save()
             
-            # 2. Sensor de Almacenamiento/Metadatos
-            meta = get_video_metadata(file_path)
-            if meta:
-                # RELLENAMOS LOS DATOS CAPTURADOS
-                self.resolution_width = meta.get('width')
-                self.resolution_height = meta.get('height')
-                self.fps = meta.get('fps')
-                self.duration = meta.get('duration')
-                self.color_space = meta.get('color_space', 'ACEScg') # <--- Captura Color Space
-                
-                # Capturamos tamaño de archivo real
-                if os.path.exists(file_path):
-                    self.filesize = os.path.getsize(file_path)
-                
-                self.save(update_fields=[
-                    'resolution_width', 'resolution_height', 'fps', 
-                    'duration', 'filesize', 'color_space'
-                ])
-
-                engine.report_status('storage', success=True)
-                return True
+            # 2. Captura de datos físicos básicos (Agnóstico)
+            if os.path.exists(file_path):
+                self.filesize = os.path.getsize(file_path)
+            
+            # Preparamos la lista de campos a actualizar para optimizar el guardado
+            fields_to_update = ['filesize', 'extra_metadata']
+            
+            # 3. Sensor de Metadatos (Específico vs Genérico)
+            # Solo intentamos extraer data de video si la categoría es VIDEO
+            if self.asset.category == Asset.AssetCategory.VIDEO:
+                meta = get_video_metadata(file_path)
+                if meta:
+                    self.resolution_width = meta.get('width')
+                    self.resolution_height = meta.get('height')
+                    self.fps = meta.get('fps')
+                    self.duration = meta.get('duration')
+                    self.color_space = meta.get('color_space', 'ACEScg')
+                    
+                    # Guardamos el dump completo en extra_metadata por si necesitamos algo luego
+                    self.extra_metadata['video_raw_info'] = meta
+                    
+                    fields_to_update.extend([
+                        'resolution_width', 'resolution_height', 
+                        'fps', 'duration', 'color_space'
+                    ])
+                    engine.report_status('storage', success=True)
+                else:
+                    # Si es video pero falla la extracción (ej. archivo corrupto)
+                    engine.report_status('storage', success=False)
             else:
-                engine.report_status('storage', success=False)
-                return False
+                # Si es un activo 3D, Código o Audio, marcamos éxito basándonos en la integridad
+                self.extra_metadata['ingest_type'] = 'agnostic_transfer'
+                engine.report_status('storage', success=True)
 
-        except Exception:
+            # 4. Guardado atómico de la versión
+            #self.save(update_fields=fields_to_update) 
+            #if self.asset.category in [Asset.AssetCategory.VIDEO, Asset.AssetCategory.IMAGE]:
+                # Usamos on_commit para que Celery no empiece antes de que Django termine el SAVE
+             #   from .tasks import process_media_task
+              #  transaction.on_commit(
+               #     lambda: process_media_task.delay(self.uuid) 
+                #)
+                # Nota: Usamos self.uuid porque es el identificador único que definiste
+            
+            self.save(update_fields=fields_to_update)
+            return True
+
+        except Exception as e:
+            import traceback
+            print("🛑 ERROR CRÍTICO EN INGESTA:")
+            traceback.print_exc()  # Esto desnudará el error en tu terminal
+            
             engine.report_status('database', success=False)
             return False
 
     def check_qc(self):
+        """
+        Validación de Calidad (QC) diferenciada.
+        Asegura que cada activo cumpla con los estándares del proyecto según su tipo.
+        """
         project = self.asset.project
         errors = []
         
-        # Si falta información técnica, es un fallo de ingesta
-        if not self.fps or not self.resolution_width:
-            errors.append("Error de Ingesta: No se pudieron extraer metadatos técnicos.")
-            return errors
+        # --- BLOQUE 1: QC PARA VIDEO ---
+        # Solo ejecutamos estas validaciones si el activo es de categoría VIDEO
+        if self.asset.category == Asset.AssetCategory.VIDEO:
+            # Validación de metadatos mínimos extraídos por FFprobe
+            if not self.fps or not self.resolution_width:
+                errors.append(_("Error de Ingesta: No se detectaron parámetros técnicos de video."))
+                return errors
 
-        if abs(self.fps - project.target_fps) > 0.01:
-            errors.append(f"FPS: {self.fps} (Esperado: {project.target_fps})")
+            # Validación de FPS contra el Target del Proyecto
+            if abs(self.fps - project.target_fps) > 0.01:
+                errors.append(f"FPS: {self.fps} (Esperado: {project.target_fps})")
             
-        if (self.resolution_width != project.target_width or 
-            self.resolution_height != project.target_height):
-            errors.append(f"Res: {self.resolution_width}x{self.resolution_height}")
-            
+            # Validación de Resolución contra el Target del Proyecto
+            if (self.resolution_width != project.target_width or 
+                self.resolution_height != project.target_height):
+                errors.append(f"Resolución: {self.resolution_width}x{self.resolution_height} (Esperada: {project.target_width}x{project.target_height})")
+
+        # --- BLOQUE 2: QC PARA CÓDIGO (Ejemplo de expansión) ---
+        elif self.asset.category == Asset.AssetCategory.CODE:
+            # Ejemplo: Validar que no sea un archivo vacío
+            if self.filesize and self.filesize == 0:
+                errors.append(_("Error: El archivo de script está vacío."))
+        
+        # --- BLOQUE 3: QC GENÉRICO (Integridad SSOT) ---
+        # Independientemente del tipo, si no hay Checksum, no hay Verdad Única
+        if not self.asset.checksum_sha256:
+            errors.append(_("Error de Integridad: El activo no posee un hash SHA-256 validado."))
+
         return errors
 
     def clean(self):

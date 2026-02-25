@@ -12,19 +12,29 @@ from .divergence_engine import PipelineStabilityIndex
 def process_video_task(self, version_id):
     engine = PipelineStabilityIndex()
     try:
+        # 1. Recuperamos la versión (ya validada y con hash por el modelo/signal)
         version = Version.objects.get(id=version_id)
-        version.ingest_and_verify(version.file.path)
-        version.transcoding_status = Version.TranscodingStatus.PROCESSING
-        version.save()
+        
+        # ELIMINADO: version.ingest_and_verify(...) para evitar doble cálculo de SHA-256
 
         input_path = version.file.path 
         directory = os.path.dirname(input_path)
         base_name = os.path.splitext(os.path.basename(version.file.name))[0]
         
-        proxy_path = os.path.join(directory, f"{base_name}_proxy.mp4")
-        thumb_path = os.path.join(directory, f"{base_name}_thumb.jpg")
+        # Construimos los slugs para mantener la coherencia con tu utils.py
+        p_slug = slugify(version.asset.project.title)
+        a_slug = slugify(version.asset.name)
+        v_str = f"v{version.version_number:03d}"
+        
+        # Rutas físicas donde FFmpeg escribirá
+        # Usamos la estructura final que definiste en asset_version_path
+        final_dir = os.path.join(settings.MEDIA_ROOT, 'assets', p_slug, a_slug, v_str)
+        os.makedirs(final_dir, exist_ok=True)
+        
+        proxy_path = os.path.join(final_dir, f"{base_name}_proxy.mp4")
+        thumb_path = os.path.join(final_dir, f"{base_name}_thumb.jpg")
 
-        # Comando único con Watermark
+        # 2. Comando único con Watermark (Protección de IP)
         watermark = f"AXIOM | {version.asset.project.title} | v{version.version_number:03d}"
         command = [
             'ffmpeg', '-y', '-i', input_path,
@@ -34,21 +44,19 @@ def process_video_task(self, version_id):
         ]
 
         result = subprocess.run(command, capture_output=True, text=True)
+        
         if result.returncode == 0:
-            # Generar miniatura
+            # 3. Generar miniatura solo si el proxy fue exitoso
             subprocess.run(['ffmpeg', '-y', '-i', input_path, '-ss', '00:00:05', '-vframes', '1', '-update', '1', thumb_path], check=True)
             
             engine.report_status('ffmpeg', success=True)
             
-            # Guardar rutas relativas para evitar el DataError
-            p_slug = slugify(version.asset.project.title)
-            a_slug = slugify(version.asset.name)
-            v_str = f"v{version.version_number:03d}"
-            
+            # 4. Guardar rutas relativas limpias en la Base de Datos
             version.proxy_file_path = os.path.join('assets', p_slug, a_slug, v_str, f"{base_name}_proxy.mp4")
             version.thumbnail = os.path.join('assets', p_slug, a_slug, v_str, f"{base_name}_thumb.jpg")
             version.transcoding_status = Version.TranscodingStatus.COMPLETED
-            version.save()
+            version.save(update_fields=['proxy_file_path', 'thumbnail', 'transcoding_status'])
+            
         else:
             engine.report_status('ffmpeg', success=False)
             raise Exception(result.stderr)
@@ -57,6 +65,8 @@ def process_video_task(self, version_id):
         engine.report_status('ffmpeg', success=False)
         Version.objects.filter(pk=version_id).update(transcoding_status=Version.TranscodingStatus.ERROR)
         return str(e)
+
+# (Tu función run_system_diagnostic se queda exactamente igual)
 
 @shared_task
 def run_system_diagnostic():
