@@ -2,42 +2,52 @@ import os
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Version, Asset
-from .tasks import process_video_task
+# Actualizamos el nombre de la tarea importada
+from .tasks import process_version_task 
 
 @receiver(post_save, sender=Version)
 def axiom_processing_trigger(sender, instance, created, **kwargs):
     """
     Sensor de AXIOM: Disparador del Pipeline.
     """
-    # Usamos un flag 'is_processing_triggered' para evitar bucles infinitos 
-    # si el post_save se llama de nuevo al actualizar el status.
+    # 1. Filtro de seguridad: Solo si es nuevo, tiene archivo y no se ha disparado
     if created and instance.file and not getattr(instance, '_is_processing_triggered', False):
         
         archivo_fisico = instance.file.path
         
-        # 1. INGESTA RÁPIDA (ADN y Metadatos)
+        # 2. INGESTA RÁPIDA (Cálculo de ADN / SHA-256 y Metadatos iniciales)
         ingesta_ok = instance.ingest_and_verify(archivo_fisico)
         
         if ingesta_ok:
             instance._is_processing_triggered = True # Previene doble ejecución
             
-            # 2. ENRUTAMIENTO INTELIGENTE (Agnóstico)
-            if instance.asset.category == Asset.AssetCategory.VIDEO:
-                # Si es video, va a la fábrica de Proxies
-                process_video_task.delay(instance.pk)
+            # 3. ENRUTAMIENTO INTELIGENTE
+            # Mandamos a Celery tanto Videos (Footage) como Imágenes (Stills)
+            # para que ambos tengan su thumbnail procesado.
+            needs_processing = [
+                Asset.AssetCategory.VIDEO, 
+                Asset.AssetCategory.IMAGE # <--- Agregamos imágenes al flujo de Celery
+            ]
+
+            if instance.asset.category in needs_processing:
+                # Delegamos la tarea (transcodificación o redimensionado)
+                process_version_task.delay(instance.pk)
+                
+                # Actualizamos status a PROCESSING
                 Version.objects.filter(pk=instance.pk).update(transcoding_status='PROCESSING')
-                print(f"🚀 AXIOM: Video detectado para {instance}. Tarea delegada a Celery.")
+                print(f"🚀 AXIOM: {instance.asset.category} detectado para {instance}. Tarea delegada.")
             
             elif instance.asset.category == Asset.AssetCategory.CODE:
-                # Si es código (ej. un script de Blender), no hay transcodificación
+                # Scripts de Blender/Python no requieren procesamiento visual
                 Version.objects.filter(pk=instance.pk).update(transcoding_status='COMPLETED')
-                print(f"⚡ AXIOM: Script {instance} registrado. No requiere Celery.")
+                print(f"⚡ AXIOM: Script registrado. No requiere procesamiento.")
             
             else:
-                # Otros formatos
+                # Otros formatos (PDFs de guion, Docs, etc.)
                 Version.objects.filter(pk=instance.pk).update(transcoding_status='COMPLETED')
-                print(f"✅ AXIOM: Archivo genérico {instance} registrado en la línea de tiempo.")
+                print(f"✅ AXIOM: Activo genérico registrado.")
 
         else:
+            # Si el SHA-256 falla o el archivo está corrupto
             Version.objects.filter(pk=instance.pk).update(transcoding_status='ERROR')
-            print(f"⚠️ AXIOM: Divergencia detectada. Error en ingesta inicial.")
+            print(f"⚠️ AXIOM: Divergencia detectada en ingesta inicial.")

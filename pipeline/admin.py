@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Profile, License, Project, Asset, Version, Comment
+from django.utils.translation import gettext_lazy as _
+from .models import Profile, License, Project, Asset, Version, Comment, SystemHealth
 
 # ==========================================
-# --- 1. PARCHE DE JERARQUÍA (EL PSY KONGROO) ---
+# --- 1. JERARQUÍA (EL PSY KONGROO) ---
 # ==========================================
 def get_app_list(self, request, app_label=None):
     app_dict = self._build_app_dict(request, app_label)
@@ -21,15 +22,15 @@ def get_app_list(self, request, app_label=None):
                 "Comment": 4,
                 "Profile": 5,
                 "License": 6,
+                "SystemHealth": 7,
             }
             app['models'].sort(key=lambda x: ordering.get(x['object_name'], 99))
     return app_list
 
 admin.AdminSite.get_app_list = get_app_list
 
-
 # ==========================================
-# --- 2. ADMINS DE SOPORTE (PROYECTOS Y ASSETS) ---
+# --- 2. ADMINS DE SOPORTE ---
 # ==========================================
 
 @admin.register(Profile)
@@ -52,10 +53,9 @@ class ProjectAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ('name', 'project', 'checksum_sha256', 'created_at')
-    list_filter = ('project',)
+    list_display = ('name', 'project', 'category', 'checksum_sha256')
+    list_filter = ('project', 'category')
     search_fields = ('name', 'checksum_sha256')
-
 
 # ==========================================
 # --- 3. EL CEREBRO DE AXIOM (VERSION ADMIN) ---
@@ -68,41 +68,53 @@ class VersionAdmin(admin.ModelAdmin):
         'get_project', 
         'asset', 
         'version_number', 
+        'department', 
         'get_tech_info', 
         'qc_status', 
         'approval_status'
     )
-    list_filter = ('approval_status', 'asset__project')
-    search_fields = ('asset__name', 'uuid')
+    
+    list_filter = ('department', 'approval_status', 'asset__project', 'transcoding_status')
+    search_fields = ('asset__name', 'uuid', 'version_number')
 
-    # BLINDAJE TÉCNICO COMPLETO
+    fieldsets = (
+        ('Ingesta de Archivo', {
+            'fields': ('file',),
+            'description': 'Selecciona el archivo original para iniciar el pipeline de AXIOM.'
+        }),
+        ('Identificación de Producción', {
+            'fields': ('asset', 'department', 'version_number', 'parent_version', 'uploaded_by')
+        }),
+        ('Control de Calidad (QC)', {
+            'fields': ('approval_status', 'transcoding_status', 'display_proxy', 'display_thumb')
+        }),
+        ('Metadatos Técnicos (Inmutables)', {
+            'classes': ('collapse',), 
+            'fields': (
+                'uuid', 'fps', 'resolution_width', 'resolution_height', 
+                'display_human_duration', 'filesize', 'color_space', 
+                'timecode_start', 'extra_metadata'
+            )
+        }),
+    )
+
+    # REGLA DE ORO: Todo método en fieldsets DEBE estar en readonly_fields
     readonly_fields = (
-        'uuid', 
-        'version_number', 
-        'created_at', 
-        'thumbnail', 
-        'display_proxy', # Link clickable
-        'transcoding_status',
-        'fps',
-        'resolution_width',
-        'resolution_height',
-        'display_human_duration',
-        'filesize',
-        'color_space'
+        'uuid', 'version_number', 'created_at', 'display_thumb', 
+        'display_proxy', 'transcoding_status', 'fps', 'resolution_width', 
+        'resolution_height', 'display_human_duration', 'filesize', 
+        'color_space', 'timecode_start'
     )
     
-    # Ocultamos la ruta de texto para que solo se vea el link clickable
-    exclude = ('proxy_file_path', 'duration')
+    exclude = ('proxy_file_path', 'duration', 'thumbnail') # 'thumbnail' se excluye porque usamos display_thumb
 
     def get_readonly_fields(self, request, obj=None):
-        """Bloquea el Approval Status para artistas."""
         if not request.user.is_superuser:
             return self.readonly_fields + ('approval_status',)
         return self.readonly_fields
     
     @admin.display(description='Duration (HH:MM:SS)')
     def display_human_duration(self, obj):
-        """Convierte segundos crudos (ej: 787.92) en formato tiempo (00:13:07.92)."""
         if obj.duration:
             hours = int(obj.duration // 3600)
             minutes = int((obj.duration % 3600) // 60)
@@ -110,35 +122,24 @@ class VersionAdmin(admin.ModelAdmin):
             return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
         return "---"
 
-    # --- FUNCIONES DE VISUALIZACIÓN ---
-
     @admin.display(description='Project')
     def get_project(self, obj):
         return obj.asset.project.title
 
     @admin.display(description='Tech Info (FPS/Res/VFX)')
     def get_tech_info(self, obj):
-        """Muestra FPS, Res, Espacio de Color, Duración y Peso."""
-        if obj.fps and obj.resolution_width:
-            # 1. Formateo de Peso
+        if obj.fps or obj.resolution_width:
+            # Guardamos contra None para evitar errores de división
             size_mb = f"{obj.filesize / (1024*1024):.2f} MB" if obj.filesize else "---"
+            dur_str = self.display_human_duration(obj)
             
-            # 2. Formateo de Duración (MM:SS.ss)
-            if obj.duration:
-                mins = int(obj.duration // 60)
-                secs = obj.duration % 60
-                dur_str = f"{mins:02}:{secs:05.2f}" # <-- Nombre de variable: dur_str
-            else:
-                dur_str = "---"
-            
-            # 3. Retorno de HTML (Asegúrate de usar dur_str aquí abajo)
             return format_html(
                 "{} fps | {}x{}<br><small style='color: #888;'>{} | {} | {}</small>",
-                obj.fps, 
-                obj.resolution_width, 
-                obj.resolution_height, 
-                obj.color_space, 
-                dur_str,  # <-- CORREGIDO: Antes decía 'dur'
+                obj.fps or "--", 
+                obj.resolution_width or "--", 
+                obj.resolution_height or "--", 
+                obj.color_space or "SRGB", 
+                dur_str,
                 size_mb
             )
         return "Pendiente"
@@ -147,11 +148,8 @@ class VersionAdmin(admin.ModelAdmin):
     def qc_status(self, obj):
         errors = obj.check_qc()
         if errors:
-            # CORRECCIÓN: Convertimos explícitamente cada error a string normal
-            # antes de intentar unirlos con join o pasarlos a format_html
             error_list = [str(error) for error in errors]
             error_string = ", ".join(error_list)
-            
             return format_html(
                 '<span style="color: #d9534f; font-weight: bold; cursor: help;" title="{}">⚠️ FAIL</span>',
                 error_string
@@ -161,22 +159,25 @@ class VersionAdmin(admin.ModelAdmin):
     @admin.display(description='Preview')
     def display_thumb(self, obj):
         if obj.thumbnail:
-            return format_html('<img src="{}" style="width: 100px; height: auto; border-radius: 5px;" />', obj.thumbnail.url)
+            return format_html('<img src="{}" style="width: 80px; height: auto; border-radius: 5px; border: 1px solid #444;" />', obj.thumbnail.url)
         return "No Thumb"
     
     @admin.display(description='Proxy Link')
     def display_proxy(self, obj):
-        """Genera el link funcional para el video."""
-        if obj.proxy_file_path:
+        # Guardamos contra archivos que no existen para evitar AttributeError
+        if obj.proxy_file_path and hasattr(obj.proxy_file_path, 'url'):
             return format_html(
-                '<a href="/media/{}" target="_blank" style="font-weight: bold; color: #ffaa00;">▶️ Abrir Video Proxy</a>', 
-                obj.proxy_file_path
+                '<a href="{}" target="_blank" style="font-weight: bold; color: #ffaa00;">▶️ Abrir Video Proxy</a>', 
+                obj.proxy_file_path.url
             )
         return "No generado"
 
-
-# --- COMENTARIOS ---
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
     list_display = ('author', 'version', 'is_resolved', 'created_at')
     list_filter = ('is_resolved',)
+
+@admin.register(SystemHealth)
+class SystemHealthAdmin(admin.ModelAdmin):
+    list_display = ('last_diagnostic', 'storage_score', 'database_score', 'ffmpeg_score', 'integrity_score')
+    readonly_fields = ('storage_score', 'database_score', 'ffmpeg_score', 'integrity_score', 'last_diagnostic')
