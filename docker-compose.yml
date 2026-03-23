@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=axiom
+      - POSTGRES_USER=arturocs
+      - POSTGRES_PASSWORD=axiom-cine_ej36
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgres://arturocs:axiom-cine_ej36@db:5432/axiom
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    command: celery -A AXIOM worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgres://arturocs:axiom-cine_ej36@db:5432/axiom
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+      - web
+
+volumes:
+  postgres_data:
