@@ -1,7 +1,9 @@
 import uuid
 import hashlib
 import os
-from django.db import models
+from django.db import models 
+from django.conf import settings 
+from django.utils import timezone
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError  
@@ -24,12 +26,12 @@ class Profile(models.Model):
         return f"{self.user.username} - {self.role}"
 
 # --- 2. Licencia (Legal) ---
-class License(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField()
+#class License(models.Model):
+ #   name = models.CharField(max_length=100)
+  #  description = models.TextField()
     
-    def __str__(self):
-        return self.name
+   # def __str__(self):
+    #    return self.name
 
 # --- 3. Proyecto (Contenedor Principal) ---
 class Project(models.Model):
@@ -43,7 +45,7 @@ class Project(models.Model):
     target_width = models.PositiveIntegerField(default=1920)
     target_height = models.PositiveIntegerField(default=1080)
     
-    license = models.ForeignKey(License, on_delete=models.SET_NULL, null=True, blank=True)
+    #license = models.ForeignKey(License, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.title
@@ -75,15 +77,82 @@ class Asset(models.Model):
         unique_together = ('name', 'project')
 
     def __str__(self):
-        return f"{self.name} [{self.project.title}]"
+        return f"{self.name} [{self.project.title}]" 
+    
+
+def get_version_path(instance, filename):
+    # 0. Verificación de seguridad inicial (Guard Clause)
+    # Si por alguna razón la Versión no está ligada a un Asset aún,
+    # evitamos que el sistema truene al intentar acceder a instance.asset.project
+    if not instance.asset:
+        return f"unsorted/{filename}"
+
+    # 1. Preparación de variables (Sanitización)
+    project_title = "unknown"
+    if instance.asset.project:
+        project_title = instance.asset.project.title.replace(" ", "_")
+        
+    category = instance.asset.category
+    asset_name = instance.asset.name.replace(" ", "_")
+    dept = instance.department if instance.department else "gen"
+    
+    # 2. Manejo de la versión
+    v_num = instance.version_number
+    if v_num is None:
+        try:
+            # Usamos instance.__class__ para evitar avisos de registro doble
+            last_v = instance.__class__.objects.filter(
+                asset=instance.asset, 
+                department=instance.department
+            ).order_by('version_number').last()
+            v_num = (last_v.version_number + 1) if last_v else 1
+        except:
+            v_num = 1
+    
+    version_str = f"v{v_num:03d}"
+    
+    # 3. Nomenclatura Automática (Determinismo de datos)
+    ext = os.path.splitext(filename)[1]
+    new_filename = f"{project_title}_{asset_name}_{dept}_{version_str}{ext}"
+    
+    # 4. Retornar la ruta estructurada siguiendo el estándar industrial
+    return f"projects/{project_title}/{category}/{asset_name}/{dept}/{version_str}/{new_filename}"
 
 # --- 5. Version (Instancia Física) ---
 class Version(models.Model):
     class ApprovalStatus(models.TextChoices):
         PENDING_REVIEW = 'PENDING_REVIEW', _('Pending Review')
         APPROVED = 'APPROVED', _('Approved')
-        REJECTED = 'REJECTED', _('Rejected')
-        DEPRECATED = 'DEPRECATED', _('Deprecated')
+        REJECTED = 'REJECTED', _('Rejected') 
+        CBB = 'CBB', _('CBB (Change Requested)')
+        DEPRECATED = 'DEPRECATED', _('Deprecated') 
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.PENDING_REVIEW,
+    )
+
+    # --- CAMPOS DE TRAZABILIDAD (Nivel Sony/Tesis) ---
+    review_notes = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Notas técnicas o artísticas del supervisor."
+    )
+    
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='versions_reviewed',
+        help_text="Usuario que realizó la última revisión."
+    )
+    
+    reviewed_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Fecha y hora exacta de la decisión."
+    )
 
     class TranscodingStatus(models.TextChoices):
         PENDING = 'PENDING', _('Pending')
@@ -135,10 +204,10 @@ class Version(models.Model):
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     parent_version = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
 
-    approval_status = models.CharField(max_length=20, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING_REVIEW)
+    #approval_status = models.CharField(max_length=20, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING_REVIEW)
     transcoding_status = models.CharField(max_length=20, choices=TranscodingStatus.choices, default=TranscodingStatus.PENDING)
 
-    file = models.FileField(_("Original File"), upload_to=asset_version_path, max_length=1000) 
+    file = models.FileField(_("Original File"), upload_to=get_version_path, max_length=1000) 
     proxy_file_path = models.FileField(max_length=1000, blank=True, null=True)
     thumbnail = models.ImageField(upload_to='thumbnails/', max_length=1000, blank=True, null=True)
     
@@ -147,7 +216,7 @@ class Version(models.Model):
     class Meta:
         verbose_name = _("Version")
         verbose_name_plural = _("Versions")
-        unique_together = ('asset', 'version_number')
+        unique_together = ('asset', 'version_number', 'department') # Añade 'department' aquí
         ordering = ['-version_number']
 
     def __str__(self):
@@ -271,6 +340,8 @@ class Version(models.Model):
         return errors
 
     def clean(self):
+        import hashlib
+        
         # 1. QC Original (Aprobación)
         if self.approval_status == self.ApprovalStatus.APPROVED:
             qc_errors = self.check_qc()
@@ -278,52 +349,127 @@ class Version(models.Model):
                 error_msg = _("QC fallido: {errors}").format(errors=', '.join(qc_errors))
                 raise ValidationError({'approval_status': error_msg})
 
-        # 2. Bloqueo de Duplicados (Uso eficiente de memoria)
+        # 2. Bloqueo de Duplicados e Integridad
         if self.file and not self.pk: 
+            self.file.seek(0)
             sha256_hash = hashlib.sha256()
             for chunk in self.file.chunks():
                 sha256_hash.update(chunk)
             nuevo_hash = sha256_hash.hexdigest()
             self.file.seek(0)
 
-            # --- LA MEJORA CLAVE AQUÍ ---
-            # Buscamos si el hash ya existe en CUALQUIER otro Asset del sistema
-            # Esto evita el error de "Unique Constraint" que te salió
-            asset_duplicado = Asset.objects.filter(checksum_sha256=nuevo_hash).exclude(id=self.asset.id).first()
-            
-            if asset_duplicado:
-                raise ValidationError({
-                    'file': _(f"Error de Integridad: Este archivo ya es la 'Fuente de Verdad' del Asset: '{asset_duplicado.name}'. "
-                              "En AXIOM, no puedes duplicar material entre diferentes Assets.")
-                })
+            # Guardamos el hash temporalmente en la instancia para no recalcularlo en el save
+            self._temp_hash = nuevo_hash
 
-            # 3. Comparación contra el hash actual del mismo Asset (Redundancia)
+            # A. VALIDACIÓN GLOBAL (SSOT)
+            asset_duplicado = Asset.objects.filter(checksum_sha256=nuevo_hash).exclude(id=self.asset.id).first()
+            if asset_duplicado:
+                raise ValidationError({'file': _(f"Error: Este archivo ya pertenece al Asset: '{asset_duplicado.name}'.")})
+
+            # B. VALIDACIÓN LOCAL (Redundancia)
             if self.asset.checksum_sha256 == nuevo_hash:
-                raise ValidationError({
-                    'file': _("Error de Redundancia: Este contenido ya es idéntico a la versión actual de este Asset.")
-                })
+                raise ValidationError({'file': _("Error de Redundancia: Este contenido es idéntico a la versión actual.")})
 
     def save(self, *args, **kwargs):
-        # 1. Si es una versión nueva (no tiene ID) y no tiene número asignado...
-        if not self.pk and self.version_number is None:
-            from django.db.models import Max
-            # Buscamos el número más alto para este activo específico (Asset)
-            last_v = Version.objects.filter(asset=self.asset).aggregate(Max('version_number'))['version_number__max']
-            self.version_number = (last_v + 1) if last_v else 1
+        # 1. Si es una versión nueva (no tiene Primary Key)
+        if not self.pk:
+            # Buscamos la ÚLTIMA instancia física (el objeto) para este asset y depto
+            last_instance = self.__class__.objects.filter(
+                asset=self.asset, 
+                department=self.department
+            ).order_by('version_number').last()
             
-        # 2. Ahora que ya tiene número, la validación ya no fallará
-        self.full_clean() 
-        super().save(*args, **kwargs)
+            # Asignación automática del número si no viene de otro lado
+            if self.version_number is None:
+                self.version_number = (last_instance.version_number + 1) if last_instance else 1
+            
+            # AUTOMATIZACIÓN DEL PADRE: 
+            # Si existe una instancia previa, se convierte automáticamente en el padre de esta.
+            if last_instance:
+                self.parent_version = last_instance
+            
+        # 2. Ejecutamos la validación completa (Aquí es donde truena si el HASH falla)
+        self.full_clean()
+        
+        # 3. Guardado final
+        super().save(*args, **kwargs) 
+        # --- ÚLTIMO PASO: Actualizar el Asset ---
+        # Si calculamos un hash en el clean, lo guardamos en el Asset padre
+        if hasattr(self, '_temp_hash'):
+            self.asset.checksum_sha256 = self._temp_hash
+            self.asset.save()
 
 # --- 6. Comentarios ---
 class Comment(models.Model):
-    version = models.ForeignKey(Version, on_delete=models.CASCADE, related_name='comments')
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-    body = models.TextField()
-    frame_number = models.PositiveIntegerField(_("Frame"), null=True, blank=True)
-    is_resolved = models.BooleanField(default=False)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    class CommentType(models.TextChoices):
+        TECHNICAL = 'TECH', _('Technical Note')
+        ARTISTIC = 'ART', _('Artistic Note')
+        PIPELINE = 'PIPE', _('Pipeline/Tool Error')
+        GENERAL = 'GEN', _('General')
+
+    class Priority(models.IntegerChoices):
+        LOW = 1, _('Low')
+        NORMAL = 2, _('Normal')
+        HIGH = 3, _('High')
+        CRITICAL = 4, _('Critical')
+
+    # Relaciones principales
+    version = models.ForeignKey(
+        'Version', 
+        on_delete=models.CASCADE, 
+        related_name='comments'
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE,
+        related_name='authored_comments'
+    )
+    
+    # Contenido y precisión de VFX
+    body = models.TextField(_("Comment Body"))
+    frame_number = models.PositiveIntegerField(
+        _("Frame"), 
+        null=True, 
+        blank=True,
+        help_text=_("Fotograma específico al que se refiere la nota.")
+    )
+    
+    # Categorización y flujo de trabajo
+    type = models.CharField(
+        max_length=4, 
+        choices=CommentType.choices, 
+        default=CommentType.GENERAL
+    )
+    priority = models.IntegerField(
+        choices=Priority.choices, 
+        default=Priority.NORMAL
+    )
+    is_resolved = models.BooleanField(
+        default=False,
+        help_text=_("Indica si el artista ya atendió esta nota.")
+    )
+    
+    # Jerarquía (Threading)
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='replies'
+    )
+    
+    # Trazabilidad
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = _("Comment")
+        verbose_name_plural = _("Comments")
+
+    def __str__(self):
+        frame_info = f" [Fr: {self.frame_number}]" if self.frame_number else ""
+        return f"{self.author.username} - {self.get_type_display()}{frame_info}"
     
 class SystemHealth(models.Model):
     """Almacena el estado técnico global del Pipeline."""
