@@ -1,70 +1,63 @@
-# 📟 AXIOM | Media Asset Pipeline & Divergence Engine
+# 📟 AXIOM | Production Asset Pipeline & Divergence Engine
 
-**AXIOM** is an industrial-grade Media Asset Management (MAM) system designed specifically for VFX and film production environments. It goes beyond simple file hosting by auditing the technical integrity of every bit and visualizing production stability through a custom **Divergence Engine** inspired by Nixie tube aesthetics.
+**AXIOM** is an industrial-grade **Production Asset Management (PAM)** ecosystem designed under the **Single Source of Truth (SSOT)** principles of the MovieLabs 2030 vision. It is specifically engineered for high-velocity VFX and film production environments, auditing the technical integrity of every bit and visualizing pipeline stability through a custom **Divergence Engine**.
 
 ---
 
 ## 🚀 Key Features
 
+### 🛡️ Production Data Integrity (SSOT)
+* **SHA-256 Hashing:** A "Storage-Aware" architecture that automatically blocks duplicate version uploads by comparing cryptographic hashes, optimizing production storage and ensuring a clean SSOT.
+* **VFX Hierarchy:** Data structure strictly aligned with studio standards: `Project > Asset > Version > Comment`.
+* **Technical Validation:** Automatic extraction and validation of Color Spaces (ACEScg, sRGB), FPS, and Resolution via **FFmpeg** and **MediaInfo**.
+
 ### 📈 Nixie-Powered Divergence Engine
 A real-time monitoring system that calculates the **Pipeline Stability Index (PSI)**.
-* **Dynamic Telemetry:** The meter fluctuates based on integrity checks, QC failures, and data redundancy.
-* **High-End UI:** A 3D Nixie tube visualization featuring glass-morphism, glow effects, and real-time flicker.
+* **Dynamic Telemetry:** The meter fluctuates based on integrity checks, service health, and ingestion success rates across the production floor.
+* **High-End UI:** A specialized interface featuring glass-morphism, glow effects, and real-time flicker to visualize the "health" of the production pipeline.
 
-### 🛡️ Data Integrity & Deduplication
-* **SHA-256 Hashing:** The system implements a "Storage-Aware" architecture that automatically blocks duplicate uploads by comparing cryptographic hashes, significantly optimizing server storage.
-* **VFX Hierarchy:** Built on a strict industry-standard logic: `Project > Asset > Version > Comment`.
-* **Role-Based Access Control:** Artists operate in a technical read-only environment, while Supervisors hold full authority over Quality Control (QC) and approval status.
-
-### ⚙️ Automated "Video DNA" Extraction
-Leveraging **FFmpeg** and **MediaInfo** to automatically extract and validate:
-* **Resolution & FPS:** Real-time validation against project-specific targets.
-* **Color Space:** Automatic detection of pixel formats (YUV, ACEScg, sRGB, etc.).
-* **Duration & File Size:** Precise tracking down to the millisecond and byte level.
+### 🔌 DCC Agnostic Connector
+Includes a communication bridge (`scripts/publish_tool.py`) successfully tested for direct integration with **Blender, Maya, and Nuke**. It allows artists to "Publish" iterations directly from their workstation to the centralized PAM server via REST API.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ System Architecture (Microservices)
 
-* **Backend:** Django (Python 3.x)
-* **Distributed Processing:** Celery + Redis
-* **Video Engine:** FFmpeg / PyMediaInfo
-* **Database:** PostgreSQL / SQLite
-* **Frontend:** HTML5 (Canvas/JS for the Nixie Engine), CSS3 (VFX Glassmorphism)
+AXIOM utilizes a microservice-oriented architecture managed via **Docker** to ensure that heavy video processing (FFmpeg) and metadata extraction never bottlenecks the user interface.
 
----
-
-## 🏗️ System Architecture
-
-The pipeline utilizes a micro-service-oriented architecture to ensure video processing never bottlenecks the user interface.
-
-1. **Ingest:** User uploads an asset via the Django Admin.
-2. **Validation:** The `clean()` method executes a SHA-256 hash check to prevent redundancy.
-3. **Task Queue:** Celery receives the Version UUID and triggers a background metadata analysis.
-4. **Telemetry:** The **Divergence Engine** updates the global PSI based on the health of the incoming data.
+* **Django:** Core API, business logic, and production management.
+* **PostgreSQL:** Technical data and asset persistence.
+* **Redis:** High-speed message broker for asynchronous tasks.
+* **Celery:** Processing engine for background "Video DNA" extraction and thumbnail generation.
 
 ---
 
-## 📋 Installation & Setup
+## 🛠️ Installation & Setup (Dockerized)
+
+The fastest way to deploy the ecosystem is using containers:
 
 1. **Clone the repository:**
    ```bash
    git clone [https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git](https://github.com/arturocruzsuarez/AXIOM-Media-Pipeline.git)
-   cd AXIOM-Media-Pipeline
+   cd AXIOM-Media-Pipeline 
 
-# 2. Setup Virtual Environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+2. **Launch Ecosystem:**
+   ```bash 
+   docker-compose up --build 
 
-# 3. Launch Services:
-Redis: redis-server
+3. **Generate API Token (Required for DCC Scripts):**
+   ```bash 
+   docker-compose exec web python manage.py drf_create_token arturocs 
 
-Worker: celery -A AXIOM worker --loglevel=info
+### DCC Integration Example
+To test ingestion from an external workstation (Windows/Blender/Maya): 
 
-Migrate: python manage.py migrate
+1.- Configure your TOKEN in scripts/publish_tool.py.
 
-Server: python manage.py runserver
+2.- Define your render path in video_path.
 
+3.- Run: python scripts/publish_tool.py.
 
-Developed by Arturo C.S. - Computer Engineering Student & Aspiring Pipeline TD.
+4.- The Divergence Dashboard will update automatically, reflecting the new version and the integrity of the production asset. 
+
+Developed by Arturo C.S. - Computer Engineering Student @ UAM Cuajimalpa | Aspiring Pipeline TD.
