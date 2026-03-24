@@ -49,15 +49,21 @@ The fastest way to deploy the ecosystem is using containers:
    ```bash 
    docker-compose exec web python manage.py drf_create_token arturocs 
 
-### DCC Integration Example
-To test ingestion from an external workstation (Windows/Blender/Maya): 
+### DCC Integration
 
 1.- Configure your TOKEN in scripts/publish_tool.py.
 
 2.- Define your render path in video_path.
 
-3.- Run: python scripts/publish_tool.py.
+To test the asset ingestion from any workstation (Windows/Linux/MacOS/Blender/Maya), use the provided Python client. This tool validates files and communicates with the REST API:
 
-4.- The Divergence Dashboard will update automatically, reflecting the new version and the integrity of the production asset. 
+3. **Ingestion Test**
+   ```bash
+   python scripts/publish_tool.py --file "path/to/your/video.mp4" --asset "Hero_Asset" --token "YOUR_TOKEN"
+
+4.- Run: python scripts/publish_tool.py.
+
+5.- The Divergence Dashboard will update automatically, reflecting the new version and the integrity of the production asset.  
+
 
 Developed by Arturo C.S. - Computer Engineering Student @ UAM Cuajimalpa | Aspiring Pipeline TD.

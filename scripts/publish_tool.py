@@ -1,40 +1,45 @@
 import requests
+import argparse
+import os
 
-def publish_to_axiom():
-    # --- CONFIGURACIÓN ---
-    API_URL = "http://localhost:8000/api/projects/1/upload/"
-    # Tu llave maestra generada en Docker
-    TOKEN = "2961d308c7d9ea1c289ae641b4534fe08a4efdb1" 
-    
-    # Datos del Asset (Categoría: COMP)
+def publish_to_axiom(video_path, asset_name, department, token, api_url):
+    # Validar que el archivo exista antes de intentar subirlo
+    if not os.path.exists(video_path):
+        print(f"❌ Error: The file '{video_path}' does not exist.")
+        return
+
+    headers = {"Authorization": f"Token {token}"}
     payload = {
-        "asset_name": "Test_Comp_Asset",
-        "department": "COMP" 
+        "asset_name": asset_name,
+        "department": department
     }
-    
-    # USAMOS 'r' al principio para que Python no se confunda con las diagonales de Windows
-    video_path = r"C:\Users\thema\Videos\test_render\test_shot.mp4"
-
-    # --- EJECUCIÓN ---
-    headers = {"Authorization": f"Token {TOKEN}"}
     
     try:
         with open(video_path, 'rb') as f:
             files = {'file': f}
-            print(f"🚀 Conectando con AXIOM para subir: {payload['asset_name']}...")
+            print(f"🚀 Connecting to AXIOM... \n📦 Uploading: {asset_name} [{department}]")
             
-            response = requests.post(API_URL, headers=headers, data=payload, files=files)
+            response = requests.post(api_url, headers=headers, data=payload, files=files)
         
         if response.status_code == 201:
-            print("✅ ¡Éxito! Versión registrada en el Pipeline.")
-            print(f"📡 Respuesta del Servidor: {response.json()['message']}")
+            print("✅ Success! Version registered in the Pipeline.")
+            print(f"📡 Server Response: {response.json().get('message', 'File processed.')}")
         else:
             print(f"❌ Error {response.status_code}: {response.text}")
             
-    except FileNotFoundError:
-        print(f"💥 Error: No encontré el archivo en {video_path}. Verifica que el nombre sea correcto.")
     except Exception as e:
-        print(f"💥 Fallo inesperado: {str(e)}")
+        print(f"💥 Unexpected Failure: {str(e)}")
 
 if __name__ == "__main__":
-    publish_to_axiom()
+    # Configuración de argumentos de línea de comandos
+    parser = argparse.ArgumentParser(description="AXIOM Pipeline - DCC Publish Tool")
+    
+    parser.add_argument("--file", required=True, help="Path to the video file to upload")
+    parser.add_argument("--asset", required=True, help="Name of the asset (e.g., Batman_Cape)")
+    parser.add_argument("--dept", default="COMP", help="Department (ANIM, FX, COMP, etc.)")
+    parser.add_argument("--token", required=True, help="Your AXIOM API Token")
+    parser.add_argument("--url", default="http://localhost:8000/api/projects/1/upload/", help="API Endpoint")
+
+    args = parser.parse_args()
+
+    publish_to_axiom(args.file, args.asset, args.dept, args.token, args.url)
