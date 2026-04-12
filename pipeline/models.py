@@ -211,7 +211,15 @@ class Version(models.Model):
     proxy_file_path = models.FileField(max_length=1000, blank=True, null=True)
     thumbnail = models.ImageField(upload_to='thumbnails/', max_length=1000, blank=True, null=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True) 
+    
+    checksum_sha256 = models.CharField(
+        max_length=64, 
+        null=True, 
+        blank=True,
+        db_index=True, # Añade esto para que las búsquedas sean instantáneas
+        help_text="ADN único de esta entrega específica."
+    )
 
     class Meta:
         verbose_name = _("Version")
@@ -341,16 +349,19 @@ class Version(models.Model):
 
     def clean(self):
         import hashlib
-        
-        # 1. QC Original (Aprobación)
+        super().clean() # Paso 0: Siempre llamar al padre
+
+        # --- 1. BLOQUE DE QC (Tu original: Calidad Artística/Técnica) ---
+        # Solo se valida si el supervisor intenta poner 'APPROVED'
         if self.approval_status == self.ApprovalStatus.APPROVED:
             qc_errors = self.check_qc()
             if qc_errors:
                 error_msg = _("QC fallido: {errors}").format(errors=', '.join(qc_errors))
                 raise ValidationError({'approval_status': error_msg})
 
-        # 2. Bloqueo de Duplicados e Integridad
+        # --- 2. BLOQUE DE INTEGRIDAD (Tu original + Propuesta 2) ---
         if self.file and not self.pk: 
+            # A. Cálculo del Hash (Agnóstico)
             self.file.seek(0)
             sha256_hash = hashlib.sha256()
             for chunk in self.file.chunks():
@@ -358,17 +369,34 @@ class Version(models.Model):
             nuevo_hash = sha256_hash.hexdigest()
             self.file.seek(0)
 
-            # Guardamos el hash temporalmente en la instancia para no recalcularlo en el save
+            # B. Persistencia (Guardamos el hash para esta versión específica)
+            self.checksum_sha256 = nuevo_hash
+            
+            # C. El "Seguro" para el save() (Tu lógica original)
+            # Mantenemos esto porque tu método save() lo usa para actualizar el Asset padre
             self._temp_hash = nuevo_hash
 
-            # A. VALIDACIÓN GLOBAL (SSOT)
+            # --- D. VALIDACIÓN GLOBAL (SSOT - Tu original) ---
+            # ¿Este archivo ya pertenece a otro Asset distinto?
             asset_duplicado = Asset.objects.filter(checksum_sha256=nuevo_hash).exclude(id=self.asset.id).first()
             if asset_duplicado:
-                raise ValidationError({'file': _(f"Error: Este archivo ya pertenece al Asset: '{asset_duplicado.name}'.")})
+                raise ValidationError({
+                    'file': _(f"Error: Este archivo ya pertenece al Asset: '{asset_duplicado.name}'.")
+                })
 
-            # B. VALIDACIÓN LOCAL (Redundancia)
-            if self.asset.checksum_sha256 == nuevo_hash:
-                raise ValidationError({'file': _("Error de Redundancia: Este contenido es idéntico a la versión actual.")})
+            # --- E. VALIDACIÓN DE REDUNDANCIA (Evolución de Datos) ---
+            # Aquí es donde la Propuesta 2 mejora tu original:
+            # En lugar de solo mirar el Asset padre, miramos TODAS las versiones previas.
+            existe_en_historial = Version.objects.filter(
+                asset=self.asset,
+                checksum_sha256=nuevo_hash
+            ).exists()
+
+            if existe_en_historial:
+                raise ValidationError({
+                    'file': _("Error de Redundancia Histórica: Este contenido ya existe en una versión anterior de este Asset. "
+                             "AXIOM exige evolución de datos en cada entrega.")
+                })
 
     def save(self, *args, **kwargs):
         # 1. Si es una versión nueva (no tiene Primary Key)
